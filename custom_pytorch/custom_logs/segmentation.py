@@ -28,7 +28,7 @@ class Logger:
         self.valid_metric_logs = open(
             os.path.join(self.save_dir, 'valid_{metric}_{self.model_name}.txt'), 'w')
 
-    def update_logs(self, step, loss, metric, valid=False):
+    def update(self, step, loss, metric, valid=False):
         if not valid:
             loss_logs = self.train_loss_logs
             metric_logs = self.train_metric_logs

@@ -1,3 +1,4 @@
+import torch
 from custom_pytorch.losses.dice import DiceCoeff
 from custom_pytorch.custom_utils import apply_reduction
 class BCEDiceLoss(DiceCoeff):
@@ -12,7 +13,7 @@ class BCEDiceLoss(DiceCoeff):
 
 
 class DiceLoss(BCEDiceLoss):
-    def __init__(*args, with_bce=False, **kwargs):
+    def __init__(self, *args, with_bce=False, **kwargs):
         super().__init__(*args, **kwargs)
         self.with_bce = with_bce
 

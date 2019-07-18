@@ -105,23 +105,36 @@ class Visualizer:
             fig.savefig(os.path.join(self.examples_savedir,
                                      f'{self.model_name}_{step}.jpg'))
 
-    def update_lines_plot(self, train_x=None, train_loss=None, train_metric=None, valid_x=None, valid_loss=None, valid_metric=None, lr=None):
+    def update_lines_plot(self, train_x=None, train_loss=None, train_metric=None,
+            valid_x=None, valid_loss=None, valid_metric=None, lr=None):
         fig, axes = self.lines_plot
         if train_x is not None:
             if train_loss is not None:
-                self.lines['loss']['train'] = self.check_and_update_line(axes[0],
-                                                                         self.lines['loss']['train'], lambda *args, **kwargs: axes[0].plot(*args, **kwargs)[0], train_x, train_loss, 'r-', label='Train')
+                self.lines['loss']['train'] = self.check_and_update_line(
+                    axes[0],
+                    self.lines['loss']['train'],
+                    lambda *args, **kwargs: axes[0].plot(*args, **kwargs)[0],
+                    train_x, train_loss, 'r-', label='Train')
             if train_metric is not None:
-                self.lines['metric']['train'] = self.check_and_update_line(axes[1],
-                                                                           self.lines['metric']['train'], lambda *args, **kwargs: axes[1].plot(*args, **kwargs)[0], train_x, train_metric, 'r-', label='Train')
+                self.lines['metric']['train'] = self.check_and_update_line(
+                    axes[1],
+                    self.lines['metric']['train'],
+                    lambda *args, **kwargs: axes[1].plot(*args, **kwargs)[0],
+                    train_x, train_metric, 'r-', label='Train')
 
         if valid_x is not None:
             if valid_loss is not None:
-                self.lines['loss']['valid'] = self.check_and_update_line(axes[0],
-                                                                         self.lines['loss']['valid'], lambda *args, **kwargs: axes[0].plot(*args, **kwargs)[0], valid_x, valid_loss, 'b-', label='Valid')
+                self.lines['loss']['valid'] = self.check_and_update_line(
+                    axes[0],
+                    self.lines['loss']['valid'],
+                    lambda *args, **kwargs: axes[0].plot(*args, **kwargs)[0],
+                    valid_x, valid_loss, 'b-', label='Valid')
             if valid_metric is not None:
-                self.lines['metric']['valid'] = self.check_and_update_line(axes[1],
-                                                                           self.lines['metric']['valid'], lambda *args, **kwargs: axes[1].plot(*args, **kwargs)[0], valid_x, valid_metric, 'b-', label='Valid')
+                self.lines['metric']['valid'] = self.check_and_update_line(
+                    axes[1],
+                    self.lines['metric']['valid'],
+                    lambda *args, **kwargs: axes[1].plot(*args, **kwargs)[0],
+                    valid_x, valid_metric, 'b-', label='Valid')
         if lr is not None:
             assert self.include_lr, 'Learning rate cannot be plotted with include_lr being false'
             self.lines['lr'] = self.check_and_update_line(
