@@ -1,10 +1,9 @@
 import math
 from datetime import datetime
-
 from easydict import EasyDict
 
 
-class Config(EasyDict):
+class Config:
     def __init__(self, train_size=None,
                  valid_size=None,
                  batch_size=None, random_seed=None,
@@ -35,7 +34,12 @@ class Config(EasyDict):
         self.identifier = identifier
         if date is None:
             self.date = str(datetime.now())
-        super().__init__(kwargs)
+        for kwarg in kwargs:
+            if isinstance(kwargs[kwarg], dict):
+                setattr(self, kwarg, EasyDict(kwargs[kwarg]))
+            else:
+                setattr(self, kwarg, kwargs[kwarg])
+
 
     @property
     def valid_batches_number(self):

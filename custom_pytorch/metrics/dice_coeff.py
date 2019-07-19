@@ -52,8 +52,6 @@ class DiceCoeff(nn.Module):
         else:
             intersection = intersection.sum()
             addition = addition.sum()
-
-        assert intersection.size()[0] == input.size()[0]
         return ((2. * intersection + smooth) /
                 (addition + smooth))
 

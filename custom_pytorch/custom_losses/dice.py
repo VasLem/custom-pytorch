@@ -1,5 +1,7 @@
 import torch
-from custom_pytorch.losses.dice import DiceCoeff
+from torch import nn
+from custom_pytorch.metrics import DiceCoeff
+from custom_pytorch.losses.dice import DiceLoss as _DiceLoss
 from custom_pytorch.custom_utils import apply_reduction
 class BCEDiceLoss(DiceCoeff):
     def forward(self, input, target, wrt_batch=True, reduction='mean'):
@@ -12,13 +14,29 @@ class BCEDiceLoss(DiceCoeff):
         return bce
 
 
-class DiceLoss(BCEDiceLoss):
+class DiceLoss(nn.Module):
     def __init__(self, *args, with_bce=False, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.with_bce = with_bce
+        super().__init__()
+        if with_bce:
+            self.loss = BCEDiceLoss(*args, **kwargs)
+        else:
+            self.loss = _DiceLoss(*args, **kwargs)
 
     def forward(self, input, target, *args, **kwargs):
-        if self.with_bce:
-            return super().__call__(input, target, *args, **kwargs)
-        return 1 - DiceCoeff.__call__(self, input, target, *args, **kwargs)
+        return self.loss(input, target, *args, **kwargs)
 
+class BCEAndDiceLoss(nn.Module):
+    def __init__(self, with_logits=True, dice_loss_kwargs={}, bce_kwargs={}):
+        super().__init__()
+        self.dice_loss = DiceLoss(**dice_loss_kwargs)
+        self.with_logits = with_logits
+        if self.with_logits:
+            self.bce_loss = torch.nn.BCEWithLogitsLoss(**bce_kwargs)
+        else:
+            self.bce_loss = torch.nn.BCELoss(**bce_kwargs)
+
+    def forward(self, inputs, targets):
+        if self.with_logits:
+            return self.dice_loss(torch.sigmoid(inputs), targets) + self.bce_loss(inputs, targets)
+        else:
+            return self.dice_loss(inputs, targets) + self.bce_loss(inputs, targets)
