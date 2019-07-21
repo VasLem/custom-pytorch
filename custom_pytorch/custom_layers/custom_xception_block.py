@@ -20,7 +20,7 @@ class SeparableConv2d(nn.Module):
 
 
 class XceptionBlock(nn.Module):
-    def __init__(self, in_filters, out_filters, reps, strides=1,
+    def __init__(self, in_filters, out_filters, reps=1, strides=1,
                  start_with_relu=False, end_with_relu=True):
         super().__init__()
         reps = max(1, reps)

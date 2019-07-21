@@ -2,7 +2,8 @@ import numpy as np
 from torch import nn
 import torch
 import torch.nn.functional as F
-from custom_pytorch.custom_layers.custom_xception_block import XceptionBlock
+from custom_pytorch.custom_layers.custom_xception_block import XceptionBlock, SeparableConv2d
+
 
 class DownSamplingBlock(nn.Module):
     def __init__(self, inp_channels):
@@ -18,22 +19,39 @@ class DownSamplingBlock(nn.Module):
 
 
 class UpSamplingBlock(nn.Module):
-    def __init__(self, inp_channels, reduce=True, scale_factor=2):
+    def __init__(self, inp_channels, reduce=True, scale_factor=2, reps=3, use_transpose=True):
         super().__init__()
-        self.upsampler = nn.UpsamplingNearest2d(scale_factor=scale_factor)
+        # self.upsampler = nn.UpsamplingNearest2d(scale_factor=scale_factor)
         self.inp_channels = inp_channels
         if reduce:
-            self.out_channels = inp_channels // 4
+            self.out_channels = inp_channels // scale_factor ** 2
         else:
             self.out_channels = inp_channels
+        if scale_factor > 1:
+            if use_transpose:
+                if scale_factor % 2 == 1:
+                    print(scale_factor)
+                    raise NotImplementedError
+                opts_stride = dict(
+                    stride=scale_factor, kernel_size=scale_factor + 1, padding=1, output_padding=1)
+                self.upsampler = nn.ConvTranspose2d(
+                    inp_channels, self.out_channels, **opts_stride)
+            else:
+                self.upsampler = nn.Sequential([nn.UpsamplingNearest2d(scale_factor=scale_factor),
+                    XceptionBlock(self.inp_channels, self.out_channels,
+                                                reps=reps)])
+        elif scale_factor == 1:
+            self.upsampler = XceptionBlock(self.inp_channels, self.out_channels,
+                                                reps=reps)
+
+
         assert self.out_channels > 0
-        self.xception_block = XceptionBlock(self.inp_channels, self.out_channels,
-                                            reps=3)
+
 
     def forward(self, inputs):
         if isinstance(inputs, tuple) or isinstance(inputs, list):
             inputs = torch.cat(inputs, dim=1)
-        return self.xception_block(self.upsampler(inputs))
+        return self.upsampler(inputs)
 
 
 class UpSamplingColumn(nn.Module):
@@ -82,7 +100,7 @@ class SamplingSegmentationV4(nn.Module):
         self.depth = depth
         self.up_sampling_columns = nn.ModuleList([
             UpSamplingColumn(n_channels * 4 ** d, d) for d in range(1, self.depth + 1)])
-        self.diagonal_joiners = [ColumnsDiagonalJoiner(
+        self.diagonal_joiner = [ColumnsDiagonalJoiner(
             n_channels, self.up_sampling_columns, d) for d in range(self.depth)]
 
         self.down_sampling_blocks = nn.ModuleList([DownSamplingBlock(n_channels * 4 ** d)
@@ -94,7 +112,7 @@ class SamplingSegmentationV4(nn.Module):
             [block.out_layers for block in self.diagonal_joiners])
         self.final_layer = XceptionBlock(
             self.features_layers,
-            int(n_categories), reps=int(np.log2(self.features_layers)))
+            int(n_categories), reps=2)
         self.sampled_features = []
 
     def forward(self, image):

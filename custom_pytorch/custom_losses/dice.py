@@ -35,8 +35,10 @@ class BCEAndDiceLoss(nn.Module):
         else:
             self.bce_loss = torch.nn.BCELoss(**bce_kwargs)
 
-    def forward(self, inputs, targets):
+    def forward(self, inputs, targets, dice_loss_kwargs={}, bce_kwargs={}):
         if self.with_logits:
-            return self.dice_loss(torch.sigmoid(inputs), targets) + self.bce_loss(inputs, targets)
+            return self.dice_loss(torch.sigmoid(inputs), targets, **dice_loss_kwargs) +\
+                self.bce_loss(inputs, targets, **bce_kwargs)
         else:
-            return self.dice_loss(inputs, targets) + self.bce_loss(inputs, targets)
+            return self.dice_loss(inputs, targets, **dice_loss_kwargs) +\
+                self.bce_loss(inputs, targets, **bce_kwargs)

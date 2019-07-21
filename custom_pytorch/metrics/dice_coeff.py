@@ -71,3 +71,4 @@ class DiceCoeff(nn.Module):
         coeff = self._compute(input, target, wrt_batch)
         if wrt_batch:
             return apply_reduction(coeff, reduction)
+        return coeff
