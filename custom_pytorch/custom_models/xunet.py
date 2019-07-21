@@ -137,12 +137,29 @@ class XUnet(nn.Module):
     R_i are the encoded outputs. This is basically a decoding architecture, while the
     encoder can be any of the already known and state of the art networks.
     """
-    def __init__(self, inp_shape, n_categories, decoder_block_class: _DecoderBlock,
+    def __init__(self, inp_shape, decoder_block_class: _DecoderBlock,
                  downsampler_block_class: _Downsampler,
                  encoder_blocks, encoder_blocks_out_shapes):
+        """
+        :param inp_shape: the input shape to compare the rest, a tuple (n_channels, height, width).
+            The height and width will only be considered for creating scaling ratios
+        :type inp_shape: tuple(3, 3)
+        :param decoder_block_class: the decoder block class
+        :type decoder_block_class: _DecoderBlock
+        :param downsampler_block_class: the downsampler block class
+        :type downsampler_block_class: _Downsampler
+        :param encoder_blocks: the encoder blocks, which are to be given in a way that sequential logic
+            can be performed. For example, if the encoder is Inception and the layers 12, 18 and 36 are
+            to be used for the encoding, then the blocks will be Inception[:12], Inception[13: 18] and
+            Inception[19: 36], for maximum efficiency. It is obvious that each block is expected
+            to be callable
+        :type encoder_blocks: list
+        :param encoder_blocks_out_shapes: the encoder blocks outputs shapes, as a list of tuples in the
+            form (n_channels, height, width)
+        :type encoder_blocks_out_shapes: list(tuple(3))
+        """
         super().__init__()
         self.n_channels = inp_shape[0]
-        self.n_categories = n_categories
         self.depth = len(encoder_blocks)
         self.encoder_blocks = encoder_blocks
         self.encoder_blocks_out_shapes = encoder_blocks_out_shapes
