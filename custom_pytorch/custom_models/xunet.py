@@ -65,25 +65,31 @@ class DecodingColumn(nn.Module):
         self.depth = depth
         self.previous_column = previous_column
         self.output_shapes = [encoder_output_shape]
+        self.column_downsamplers = []
         if depth == 0:
-            self.column = nn.Sequential([])
+            self.column_decoders = [nn.Sequential([])]
+
         else:
             assert depth == 1 or previous_column is not None,\
                 'Previous column needs to be provided for depth > 1'
             assert len(previous_column.column) == depth - 1,\
                 'Previous column needs to be 1 depth shorter than this one'
-            self.column = decoder_block_class(encoder_output_shape[0], encoder_input_shape[0],
-                                              scale_ratio=self.encoder_ratio)
+            self.column_decoders = [
+                decoder_block_class(encoder_output_shape[0], encoder_input_shape[0],
+                                              scale_ratio=self.encoder_ratio)]
             self.output_shapes.append(encoder_input_shape)
             if depth != 1:
-                self.column_decoders = [self.column] + [
+                self.column_decoders = self.column_decoders + [
                     decoder_block_class(in_shape[0], out_shape[0], scale_ratio=out_shape[1] / in_shape[1]) for
                     in_shape, out_shape in zip(
                         previous_column.output_shapes[:-1], previous_column.output_shapes[1:])]
-                self.column_decoders = nn.ModuleList(self.column)
-                self.column_downsamplers = nn.ModuleList([
+                self.column_downsamplers = [
                     downsampler_block_class(2 * in_shape[0], in_shape[0]) for in_shape in
-                    previous_column.output_shapes])
+                    previous_column.output_shapes]
+        if self.column_downsamplers:
+            self.column_downsamplers = nn.ModuleList(self.column_downsamplers)
+        self.column_decoders = nn.ModuleList(self.column)
+
 
     def extract_features(self, inputs, previous_column_outputs):
         if self.depth == 0:
@@ -120,7 +126,7 @@ class ColumnsDiagonalJoiner:
 
 
 class XUnet(nn.Module):
-    """An expanded UNet representation in the following form:
+    """An expanded/extreme UNet representation in the following form:
 
     I -e1-> R1 -e2------> R2
     |        | -----      |
@@ -131,6 +137,7 @@ class XUnet(nn.Module):
              |            d1
              |            |
              -----D---->Concat--> Output
+
     It is like having multiple sub-unets, up to the original, while interconnecting
     them by concatenation. e_i are the encoder blocks, d_i are the decoder blocks,
     D is the downsampler black, which halfs down the provided input channels, and
@@ -139,7 +146,7 @@ class XUnet(nn.Module):
     """
     def __init__(self, inp_shape, decoder_block_class: _DecoderBlock,
                  downsampler_block_class: _Downsampler,
-                 encoder_blocks, encoder_blocks_out_shapes):
+                 encoder_blocks, encoder_blocks_out_shapes, shared_decoders=False):
         """
         :param inp_shape: the input shape to compare the rest, a tuple (n_channels, height, width).
             The height and width will only be considered for creating scaling ratios
@@ -157,6 +164,10 @@ class XUnet(nn.Module):
         :param encoder_blocks_out_shapes: the encoder blocks outputs shapes, as a list of tuples in the
             form (n_channels, height, width)
         :type encoder_blocks_out_shapes: list(tuple(3))
+        :param shared_decoders: whether the decoders in each decoder column are to be shared, something
+            that will greatly reduce the proposed network, but will most probably increase exponentially
+            training time and may worsen the network efficiency. Defaults to False.
+        :type shared_decoders: bool
         """
         super().__init__()
         self.n_channels = inp_shape[0]
@@ -165,6 +176,7 @@ class XUnet(nn.Module):
         self.encoder_blocks_out_shapes = encoder_blocks_out_shapes
         self.encoder_blocks_in_shapes = [inp_shape] + encoder_blocks_out_shapes[:-1]
         self.decoding_columns = []
+        self.shared_decoders = shared_decoders
         for d in range(self.depth):
             if not self.decoding_columns:
                 self.decoding_columns.append(
@@ -172,15 +184,33 @@ class XUnet(nn.Module):
                     self.encoder_blocks_in_shapes[d], self.encoder_blocks_out_shapes[d]))
             else:
                 self.decoding_columns.append(
-                   DecodingColumn(d + 1, decoder_block_class, downsampler_block_class,
+                DecodingColumn(d + 1, decoder_block_class, downsampler_block_class,
                     self.encoder_blocks_in_shapes[d], self.encoder_blocks_out_shapes[d],
                     self.decoding_columns[-1]))
+        if self.shared_decoders:
+            for column in self.decoding_columns[:-1]:
+                for cnt in range(len(column.column_decoders)):
+                    column.column_decoders[cnt] = self.decoding_columns[-1].column_decoders[cnt]
         self.decoding_columns = nn.ModuleList(self.decoding_columns)
 
     def forward(self, input):
+        """Returns the last output of the last decoding column,
+        which has the same shape as the input
+        """
+        return self.extract_features(input)[-1]
+
+    def extract_features(self, input):
+        """This will return the last decoding column outputs,
+        it will produce more tightly convolved features than the ones provided, interesting
+        results may arise if they are compared, it is currently assumed that an invariance in
+        scale may be a positive outcome.
+        :return: Features of same shape as the ones originally provided
+        """
         x = input
         previous_outputs = None
         for enc, dec in zip(self.encoder_blocks, self.decoding_columns):
             x = enc(x)
             previous_outputs = dec.extract_features(x, previous_outputs)
-        return previous_outputs[-1]
+        return ([x] + previous_outputs)[::-1]
+
+
