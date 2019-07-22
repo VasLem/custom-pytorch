@@ -108,46 +108,30 @@ class DecodingColumn(nn.Module):
 
 
 
-class ColumnsDiagonalJoiner:
-    def __init__(self, n_channels, columns, depth):
-        self.depth = depth
-        if depth == 0:
-            self.out_layers = n_channels + sum(
-                [column.column[cnt].out_channels for cnt, column
-                 in enumerate(columns[self.depth:])])
-        else:
-            self.out_layers = columns[self.depth - 1].inp_channels + sum(
-                [column.column[cnt].out_channels for cnt, column
-                 in enumerate(columns[self.depth:])])
-
-    def __call__(self, inputs, columns_outputs):
-        total = [[inputs]] + columns_outputs
-        return torch.cat([el[cnt] for cnt, el in enumerate(total[self.depth:])], dim=1)
-
-
 class XUnet(nn.Module):
-    """An expanded/extreme UNet representation in the following form:
 
-    I -e1-> R1 -e2------> R2
-    |        | -----      |
-    |       d1      |     d2
-    |        |      |     |
-    |------Concat   -D->Concat
-             |            |
-             |            d1
-             |            |
-             -----D---->Concat--> Output
-
-    It is like having multiple sub-unets, up to the original, while interconnecting
-    them by concatenation. e_i are the encoder blocks, d_i are the decoder blocks,
-    D is the downsampler black, which halfs down the provided input channels, and
-    R_i are the encoded outputs. This is basically a decoding architecture, while the
-    encoder can be any of the already known and state of the art networks.
-    """
     def __init__(self, inp_shape, decoder_block_class: _DecoderBlock,
                  downsampler_block_class: _Downsampler,
-                 encoder_blocks, encoder_blocks_out_shapes, shared_decoders=False):
+                 encoder_blocks_out_shapes, encoder_blocks=None, shared_decoders=False):
         """
+        An expanded/extreme UNet representation in the following form:
+
+        I -e1-> R1 -e2------> R2
+        |        | -----      |
+        |       d1      |     d2
+        |        |      |     |
+        |------Concat   -D->Concat
+                |            |
+                |            d1
+                |            |
+                -----D---->Concat--> Output
+
+        It is like having multiple sub-unets, up to the original, while interconnecting
+        them by concatenation. e_i are the encoder blocks, d_i are the decoder blocks,
+        D is the downsampler black, which halfs down the provided input channels, and
+        R_i are the encoded outputs. This is basically a decoding architecture, while the
+        encoder can be any of the already known and state of the art networks.
+
         :param inp_shape: the input shape to compare the rest, a tuple (n_channels, height, width).
             The height and width will only be considered for creating scaling ratios
         :type inp_shape: tuple(3, 3)
@@ -159,7 +143,7 @@ class XUnet(nn.Module):
             can be performed. For example, if the encoder is Inception and the layers 12, 18 and 36 are
             to be used for the encoding, then the blocks will be Inception[:12], Inception[13: 18] and
             Inception[19: 36], for maximum efficiency. It is obvious that each block is expected
-            to be callable
+            to be callable. If not supplied, a list of the encoded features must be supplied during forwarding.
         :type encoder_blocks: list
         :param encoder_blocks_out_shapes: the encoder blocks outputs shapes, as a list of tuples in the
             form (n_channels, height, width)
@@ -171,7 +155,7 @@ class XUnet(nn.Module):
         """
         super().__init__()
         self.n_channels = inp_shape[0]
-        self.depth = len(encoder_blocks)
+        self.depth = len(encoder_blocks_out_shapes)
         self.encoder_blocks = encoder_blocks
         self.encoder_blocks_out_shapes = encoder_blocks_out_shapes
         self.encoder_blocks_in_shapes = [inp_shape] + encoder_blocks_out_shapes[:-1]
@@ -193,24 +177,29 @@ class XUnet(nn.Module):
                     column.column_decoders[cnt] = self.decoding_columns[-1].column_decoders[cnt]
         self.decoding_columns = nn.ModuleList(self.decoding_columns)
 
-    def forward(self, input):
+    def forward(self, input, encoded_features=None):
         """Returns the last output of the last decoding column,
         which has the same shape as the input
         """
         return self.extract_features(input)[-1]
 
-    def extract_features(self, input):
+    def extract_features(self, input, encoded_features=None):
         """This will return the last decoding column outputs,
         it will produce more tightly convolved features than the ones provided, interesting
         results may arise if they are compared, it is currently assumed that an invariance in
         scale may be a positive outcome.
         :return: Features of same shape as the ones originally provided
         """
-        x = input
+        if self.encoder_blocks is None:
+            assert encoded_features is not None, 'The encoded features list must be supplied'
+            encoded_features = [input] + encoded_features
+        else:
+            encoded_features = [input]
+            for block in self.encoder_blocks:
+                encoded_features.append(block(encoded_features[-1]))
         previous_outputs = None
-        for enc, dec in zip(self.encoder_blocks, self.decoding_columns):
-            x = enc(x)
-            previous_outputs = dec.extract_features(x, previous_outputs)
-        return ([x] + previous_outputs)[::-1]
+        for feat, dec in zip(encoded_features[1:], self.decoding_columns):
+            previous_outputs = dec.extract_features(feat, previous_outputs)
+        return ([encoded_features[-1]] + previous_outputs)[::-1]
 
 
