@@ -8,6 +8,15 @@ from custom_pytorch.custom_config import Config
 from custom_pytorch.custom_utils import get_model_name
 
 
+def convert_to_numpy(batch_ims):
+    try:
+        batch_ims = batch_ims.permute(0, 2, 3, 1).cpu().data.numpy()
+    except AttributeError:
+        pass
+    except BaseException:
+        batch_ims = batch_ims.cpu().data.numpy()
+    return batch_ims
+
 class Visualizer:
     def __init__(self, config: Config, metric_function, max_images_num=10,
                  metric_used='DiceCoeff', include_lr=True, examples_savedir=None):
@@ -98,9 +107,15 @@ class Visualizer:
         for cnt, (input_im, input_mask, predicted) in enumerate(zip(input_ims[inds],
                                                                     input_masks[inds],
                                                                     predicteds[inds])):
+            input_im = (input_im - input_im.min()) / (input_im.max() - input_im.min())
             axes[cnt][0].imshow(input_im.squeeze())
             axes[cnt][1].imshow(input_mask.squeeze())
-            axes[cnt][2].imshow(predicted.squeeze())
+            predicted = predicted.squeeze()
+            if len(predicted.shape) == 3:
+                predicted = np.argmax(predicted, axis=2)
+            elif len(predicted.shape) != 2:
+                raise ValueError("Predicted value has invalid dimensions:", predicted.shape)
+            axes[cnt][2].imshow(predicted)
         fig.canvas.draw()
         fig.canvas.flush_events()
         if self.examples_savedir:
@@ -169,6 +184,7 @@ class Visualizer:
 
     def step(self, step, loss, batch_ims, batch_gt, batch_out, metric=None, valid=False):
         plot_every_n_steps = self.config.plot_train_every_n_steps
+        np_metric = None
         show_examples_every_n_steps = self.config.show_examples_every_n_steps
         if valid:
             plot_every_n_steps = self.config.plot_valid_every_n_steps
@@ -181,7 +197,7 @@ class Visualizer:
                 try:
                     metric = self.metric_function(batch_out, batch_gt)
 
-                finally:
+                except BaseException:
                     metric = self.metric_function(
                         batch_out.cpu().data.numpy(), batch_gt.cpu().data.numpy())
             else:
@@ -194,7 +210,11 @@ class Visualizer:
                 np_metric = metric
             self.update_loss_and_metric(step, np_loss, np_metric, valid=valid)
         if not valid and step % show_examples_every_n_steps == 0:
-            self.update_examples_plot(step, batch_ims, batch_gt, batch_out)
+
+            self.update_examples_plot(step, convert_to_numpy(batch_ims),
+                                      convert_to_numpy(batch_gt),
+                                      convert_to_numpy(batch_out))
+        return np_metric
 
 
 

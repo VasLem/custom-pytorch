@@ -56,8 +56,8 @@ class DecodingColumn(nn.Module):
         :type previous_column: Column, optional
         """
         super().__init__()
-        i_ratio = encoder_output_shape[1] / encoder_input_shape[1]
-        j_ratio = encoder_output_shape[2] / encoder_input_shape[2]
+        i_ratio = encoder_input_shape[1] / encoder_output_shape[1]
+        j_ratio = encoder_input_shape[2] / encoder_output_shape[2]
         if i_ratio != j_ratio:
             raise NotImplementedError('The algorithm expects an encoder that alters uniformly'
                                       ' the spatial characteristics of the input. Different scaling'
@@ -68,14 +68,14 @@ class DecodingColumn(nn.Module):
         self.previous_column = previous_column
         self.output_shapes = [encoder_output_shape]
         self.column_downsamplers = []
-        if depth == 0:
+        if self.depth == 0:
             self.column_decoders = [nn.Sequential([])]
 
         else:
-            assert depth == 1 or previous_column is not None,\
+            assert self.depth == 1 or self.previous_column is not None,\
                 'Previous column needs to be provided for depth > 1'
-            if previous_column is not None:
-                assert len(previous_column.column_decoders) == depth - 1,\
+            if self.previous_column is not None:
+                assert len(self.previous_column.column_decoders) == depth - 1,\
                     'Previous column needs to be 1 depth shorter than this one'
             self.column_decoders = [
                 decoder_block_class(encoder_output_shape[0], encoder_input_shape[0],
@@ -83,12 +83,17 @@ class DecodingColumn(nn.Module):
             self.output_shapes.append(encoder_input_shape)
             if depth != 1:
                 self.column_decoders = self.column_decoders + [
-                    decoder_block_class(in_shape[0], out_shape[0], scale_ratio=out_shape[1] / in_shape[1]) for
-                    in_shape, out_shape in zip(
-                        previous_column.output_shapes[:-1], previous_column.output_shapes[1:])]
+                    decoder_block_class(
+                        2 * in_shape[0], out_shape[0],
+                        scale_ratio=out_shape[1] / in_shape[1]) for
+                    cnt, (in_shape, out_shape) in enumerate(zip(
+                        previous_column.output_shapes[:-1], previous_column.output_shapes[1:]))]
                 self.column_downsamplers = [
                     downsampler_block_class(2 * in_shape[0], in_shape[0]) for in_shape in
-                    previous_column.output_shapes]
+                    previous_column.output_shapes[1:]]
+                self.output_shapes.extend(previous_column.output_shapes[1:])
+                # self.output_shapes.extend((previous_column.output_shapes[1] * 2, )
+                #                           + tuple(previous_column.output_shapes[2:]))
         if self.column_downsamplers:
             self.column_downsamplers = nn.ModuleList(self.column_downsamplers)
         self.column_decoders = nn.ModuleList(self.column_decoders)
@@ -97,17 +102,22 @@ class DecodingColumn(nn.Module):
     def extract_features(self, inputs, previous_column_outputs):
         if self.depth == 0:
             return [inputs]
-        features = [inputs, self.column_decoders[0][inputs]]
-        if self.previous_column:
-            for decoder, downsampler, previous_column_output in zip(
-                self.column_decoders[1:], self.column_downsamplers, previous_column_outputs):
-                features.append(decoder(
-                    torch.cat((downsampler(previous_column_output),
-                    features[-1]))))
+
+
+        features = [inputs]
+        for cnt, (decoder, previous_column_output) in enumerate(zip(
+                self.column_decoders,  previous_column_outputs)):
+                if cnt:
+                    previous_column_output = self.column_downsamplers[cnt - 1](
+                        previous_column_output)
+                decoded = decoder(features[-1])
+                features.append(torch.cat((previous_column_output, decoded), dim=1))
         return features
 
     def forward(self, inputs, previous_column_outputs):
-        return self.extract_features(inputs, previous_column_outputs)[-1]
+        feats = self.extract_features(inputs, previous_column_outputs)
+
+        return feats[-1]
 
 
 
@@ -162,6 +172,7 @@ class XUnet(nn.Module):
         self.encoder_blocks = encoder_blocks
         self.encoder_blocks_out_shapes = encoder_blocks_out_shapes
         self.encoder_blocks_in_shapes = [inp_shape] + encoder_blocks_out_shapes[:-1]
+
         self.decoding_columns = []
         self.shared_decoders = shared_decoders
         for d in range(self.depth):
@@ -178,6 +189,9 @@ class XUnet(nn.Module):
             for column in self.decoding_columns[:-1]:
                 for cnt in range(len(column.column_decoders)):
                     column.column_decoders[cnt] = self.decoding_columns[-1].column_decoders[cnt]
+        self.final_downsamplers = nn.ModuleList([
+            downsampler_block_class(2 * shape[0], shape[0]) for shape
+            in self.encoder_blocks_in_shapes])
         self.decoding_columns = nn.ModuleList(self.decoding_columns)
 
     def forward(self, input, encoded_features=None):
@@ -200,9 +214,13 @@ class XUnet(nn.Module):
             encoded_features = [input]
             for block in self.encoder_blocks:
                 encoded_features.append(block(encoded_features[-1]))
-        previous_outputs = None
+        previous_outputs = [input]
         for feat, dec in zip(encoded_features[1:], self.decoding_columns):
             previous_outputs = dec.extract_features(feat, previous_outputs)
-        return ([encoded_features[-1]] + previous_outputs)[::-1]
+        features = previous_outputs
+        features[1:] = [
+            downsampler(feat) for downsampler, feat in
+            zip(self.final_downsamplers[::-1],features[1:])]
+        return features
 
 

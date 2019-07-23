@@ -30,7 +30,6 @@ class UpSamplingBlock(nn.Module):
         if scale_factor > 1:
             if use_transpose:
                 if scale_factor % 2 == 1:
-                    print(scale_factor)
                     raise NotImplementedError
                 opts_stride = dict(
                     stride=scale_factor, kernel_size=scale_factor + 1, padding=1, output_padding=1)
@@ -145,6 +144,7 @@ if __name__ == '__main__':
     net = SamplingSegmentationV4(3, 4, depth)
     from numpy.random import random
     import time
+    import os
     dummy_inp = torch.from_numpy(random((1, 3, 4 ** depth, 4 ** depth))).float()
     t0 = time.time()
     net(dummy_inp)
