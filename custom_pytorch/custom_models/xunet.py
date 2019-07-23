@@ -5,6 +5,7 @@ from abc import abstractmethod
 
 class _DecoderBlock(nn.Module):
     def __init__(self, in_channels, out_channels, scale_ratio, *args, **kwargs):
+        super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.scale_ratio = scale_ratio
@@ -15,6 +16,7 @@ class _DecoderBlock(nn.Module):
 
 class _Downsampler(nn.Module):
     def __init__(self, in_channels, out_channels, *args, **kwargs):
+        super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
 
@@ -61,7 +63,7 @@ class DecodingColumn(nn.Module):
                                       ' the spatial characteristics of the input. Different scaling'
                                       ' ratios are not supported')
         self.encoder_ratio = i_ratio
-        self.inp_channels = inp_channels
+        self.inp_channels = encoder_output_shape[0]
         self.depth = depth
         self.previous_column = previous_column
         self.output_shapes = [encoder_output_shape]
@@ -72,8 +74,9 @@ class DecodingColumn(nn.Module):
         else:
             assert depth == 1 or previous_column is not None,\
                 'Previous column needs to be provided for depth > 1'
-            assert len(previous_column.column) == depth - 1,\
-                'Previous column needs to be 1 depth shorter than this one'
+            if previous_column is not None:
+                assert len(previous_column.column_decoders) == depth - 1,\
+                    'Previous column needs to be 1 depth shorter than this one'
             self.column_decoders = [
                 decoder_block_class(encoder_output_shape[0], encoder_input_shape[0],
                                               scale_ratio=self.encoder_ratio)]
@@ -88,7 +91,7 @@ class DecodingColumn(nn.Module):
                     previous_column.output_shapes]
         if self.column_downsamplers:
             self.column_downsamplers = nn.ModuleList(self.column_downsamplers)
-        self.column_decoders = nn.ModuleList(self.column)
+        self.column_decoders = nn.ModuleList(self.column_decoders)
 
 
     def extract_features(self, inputs, previous_column_outputs):
@@ -168,7 +171,7 @@ class XUnet(nn.Module):
                     self.encoder_blocks_in_shapes[d], self.encoder_blocks_out_shapes[d]))
             else:
                 self.decoding_columns.append(
-                DecodingColumn(d + 1, decoder_block_class, downsampler_block_class,
+                    DecodingColumn(d + 1, decoder_block_class, downsampler_block_class,
                     self.encoder_blocks_in_shapes[d], self.encoder_blocks_out_shapes[d],
                     self.decoding_columns[-1]))
         if self.shared_decoders:

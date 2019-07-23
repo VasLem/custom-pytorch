@@ -9,7 +9,7 @@ from custom_pytorch.custom_utils import get_model_name
 
 
 class Visualizer:
-    def __init__(self, config: Config, max_images_num=10,
+    def __init__(self, config: Config, metric_function, max_images_num=10,
                  metric_used='DiceCoeff', include_lr=True, examples_savedir=None):
         """Visualizer of segmentation specific problems
 
@@ -25,6 +25,8 @@ class Visualizer:
             examples plots will be saved, defaults to None
         :type examples_savedir: path, optional
         """
+        self.metric_function = metric_function
+        self.config = config
         self.model_name = get_model_name(config)
         assert examples_savedir is None or os.path.isdir(examples_savedir),\
             'Examples savedir is not a valid directory'
@@ -163,3 +165,38 @@ class Visualizer:
 
     def update_lr(self, step, lr, valid=False):
         self.update_lines_plot(train_x=step, lr=lr)
+
+
+    def step(self, step, loss, batch_ims, batch_gt, batch_out, metric=None, valid=False):
+        plot_every_n_steps = self.config.plot_train_every_n_steps
+        show_examples_every_n_steps = self.config.show_examples_every_n_steps
+        if valid:
+            plot_every_n_steps = self.config.plot_valid_every_n_steps
+        if step % plot_every_n_steps == 0:
+            try:
+                np_loss = loss.detach().cpu().data.numpy()
+            except AttributeError:
+                np_loss = loss
+            if self.metric_function is not None:
+                try:
+                    metric = self.metric_function(batch_out, batch_gt)
+
+                finally:
+                    metric = self.metric_function(
+                        batch_out.cpu().data.numpy(), batch_gt.cpu().data.numpy())
+            else:
+                if metric is None:
+                    raise ValueError("The metric was not provided and cannot"
+                                     "be computed as metric function was not provided")
+            try:
+                np_metric = metric.cpu().data.numpy()
+            except AttributeError:
+                np_metric = metric
+            self.update_loss_and_metric(step, np_loss, np_metric, valid=valid)
+        if not valid and step % show_examples_every_n_steps == 0:
+            self.update_examples_plot(step, batch_ims, batch_gt, batch_out)
+
+
+
+
+

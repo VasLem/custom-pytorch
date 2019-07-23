@@ -7,7 +7,9 @@ class Config:
     def __init__(self, train_size=None,
                  valid_size=None,
                  batch_size=None, random_seed=None,
-                 lr=None, identifier='', date=None, **kwargs):
+                 lr=None, identifier='', date=None, valid_every=50, plot_train_every_n_steps=100,
+                 plot_valid_every_n_steps=100, show_examples_every_n_steps=50,
+                 **kwargs):
         """Main Configuration for every experiment
 
         :param train_size: training data size, defaults to None
@@ -26,6 +28,10 @@ class Config:
             be filled with current date string
         :type date: str
         """
+        self.valid_every = valid_every
+        self.plot_train_every_n_steps = plot_train_every_n_steps
+        self.plot_valid_every_n_steps = plot_valid_every_n_steps
+        self.show_examples_every_n_steps = show_examples_every_n_steps
         self.train_size = train_size
         self.valid_size = valid_size
         self.batch_size = batch_size
