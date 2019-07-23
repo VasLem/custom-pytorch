@@ -10,3 +10,6 @@
 [submodule "custom_pytorch/external/object_detection_metrics"]
 	path = custom_pytorch/external/object_detection_metrics
 	url = https://github.com/rafaelpadilla/Object-Detection-Metrics.git
+[submodule "custom_pytorch/external/pytorch_enet"]
+	path = custom_pytorch/external/pytorch_enet
+	url = https://github.com/davidtvs/PyTorch-ENet.git
