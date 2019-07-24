@@ -188,7 +188,9 @@ class XUnet(nn.Module):
         if self.shared_decoders:
             for column in self.decoding_columns[:-1]:
                 for cnt in range(len(column.column_decoders)):
-                    column.column_decoders[cnt] = self.decoding_columns[-1].column_decoders[cnt]
+                    if cnt > 0:
+                        neg_ind = len(column.column_decoders) - cnt
+                        column.column_decoders[cnt] = self.decoding_columns[-1].column_decoders[-neg_ind]
         self.final_downsamplers = nn.ModuleList([
             downsampler_block_class(2 * shape[0], shape[0]) for shape
             in self.encoder_blocks_in_shapes])

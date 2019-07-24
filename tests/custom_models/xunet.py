@@ -47,12 +47,10 @@ class SimpleDownsamplerBlock(_Downsampler):
 
 
 class SimpleXUnet(XUnet):
-    def __init__(self, encoder_name, sample_input,  n_categories, shared_decoders=False, reversed_features=True):
+    def __init__(self, encoder_name, sample_input,  n_categories,
+                 shared_decoders=False, reversed_features=True):
 
         encoder = get_encoder(encoder_name, 'imagenet')
-
-        in_model = nn.Conv2d(sample_input.size()[0], self.n_categories, 3, padding=1)
-        sample_input = in_model(sample_input)
         inp_shape = sample_input.size()[-3:]
         feats = encoder(sample_input)
         if reversed_features:
@@ -61,14 +59,12 @@ class SimpleXUnet(XUnet):
         super().__init__(inp_shape, SimpleDecoderBlock,
                  SimpleDownsamplerBlock,
                  out_shapes, shared_decoders=shared_decoders)
-        self.in_model = in_model
         self.reversed_features = reversed_features
         self.n_categories = n_categories
         self.out_model = nn.Conv2d(inp_shape[0], self.n_categories, 3, padding=1)
         self.encoder = encoder
 
     def forward(self, inputs):
-        inputs = self.in_model(inputs)
         enc_features = self.encoder(inputs)
         if self.reversed_features:
             enc_features = enc_features[::-1]
@@ -113,7 +109,7 @@ def main():
                                     transform=transform_func, target_transform=target_transform_func)
 
     CONFIG = Config(train_size=len(train_dataset), valid_size=100, batch_size=3,
-                   random_seed=42, lr=1e-3, identifier='SimpleXUnet')
+                   random_seed=42, lr=1e-2, identifier='SimpleXUnet')
     train_data_loader = torch.utils.data.DataLoader(train_dataset,
                                           batch_size=CONFIG.batch_size,
                                           shuffle=True,
@@ -128,13 +124,13 @@ def main():
     # model_parameters = filter(lambda p: p.requires_grad, model.parameters())
     # params = sum([np.prod(p.size()) for p in model_parameters])
     # print(params)
-    optimizer = Adam(model.parameters(), CONFIG.lr)
+    optimizer = nn.optim.SGD(model.parameters(), CONFIG.lr)
     step = 0
     epochs_num = 30
 
     visualizer = Visualizer(CONFIG, metric_used='IoU', include_lr=False,
                             metric_function=IoU(21))
-    loss_function = nn.CrossEntropyLoss(ignore_index=0)
+    loss_function = nn.CrossEntropyLoss()
 
     for epoch in range(epochs_num):
         print(f"Epoch {epoch + 1}")
