@@ -1,13 +1,16 @@
-from custom_pytorch.custom_models.xunet import XUnet, _DecoderBlock, _Downsampler
+from custom_pytorch.custom_models.xunet import SimpleXUnet
 from custom_pytorch.custom_config import Config
 from torch import nn
 import torch
 from torch.utils.data import RandomSampler
-from torch.optim import Adam
+from torch.optim import SGD
 from torchvision.datasets import VOCSegmentation
 from segmentation_models_pytorch.encoders import get_preprocessing_fn, get_encoder
+import segmentation_models_pytorch as smp
+
 from custom_pytorch.custom_visualizations.segmentation import Visualizer
 from custom_pytorch.external.pytorch_enet.metric.iou import IoU as _IoU
+import torch.nn.functional as F
 
 
 class IoU(nn.Module):
@@ -20,62 +23,7 @@ class IoU(nn.Module):
         return self.calculator.value()[1]
 
 
-class SimpleDecoderBlock(_DecoderBlock):
-    def __init__(self, inp_channels, out_channels, scale_ratio):
-        super().__init__(inp_channels, out_channels, scale_ratio)
-        sequence = []
-        if scale_ratio > 1:
-            sequence.append(nn.UpsamplingBilinear2d(scale_factor=scale_ratio))
-        sequence.append(nn.Conv2d(inp_channels, out_channels, 3, padding=1))
-        if scale_ratio < 1:
-            sequence.append(nn.FractionalMaxPool2d(3, output_ratio=scale_ratio))
-        sequence.append(nn.ReLU6(inplace=True))
-        self.sequence = nn.Sequential(*sequence)
 
-    def forward(self, input):
-        return self.sequence(input)
-
-class SimpleDownsamplerBlock(_Downsampler):
-    def __init__(self, inp_channels, out_channels):
-        super().__init__(inp_channels, out_channels)
-        self.sequence = nn.Sequential(
-            nn.Conv2d(inp_channels, out_channels, 3, padding=1),
-            nn.ReLU6())
-
-    def forward(self, input):
-        return self.sequence(input)
-
-
-class SimpleXUnet(XUnet):
-    def __init__(self, encoder_name, sample_input,  n_categories,
-                 shared_decoders=False, reversed_features=True):
-
-        encoder = get_encoder(encoder_name, 'imagenet')
-        inp_shape = sample_input.size()[-3:]
-        feats = encoder(sample_input)
-        if reversed_features:
-            feats = feats[::-1]
-        out_shapes = [feat.size()[-3:] for feat in feats]
-        super().__init__(inp_shape, SimpleDecoderBlock,
-                 SimpleDownsamplerBlock,
-                 out_shapes, shared_decoders=shared_decoders)
-        self.reversed_features = reversed_features
-        self.n_categories = n_categories
-        self.out_model = nn.Conv2d(inp_shape[0], self.n_categories, 3, padding=1)
-        self.encoder = encoder
-
-    def forward(self, inputs):
-        enc_features = self.encoder(inputs)
-        if self.reversed_features:
-            enc_features = enc_features[::-1]
-        ret = super().forward(inputs, enc_features)
-        return self.out_model(ret)
-
-    def extract_features(self, input):
-        enc_features = self.encoder(input)
-        if self.reversed_features:
-            enc_features = enc_features[::-1]
-        return super().extract_features(input, encoded_features=enc_features)
 
 
 def main():
@@ -108,8 +56,10 @@ def main():
     valid_dataset = VOCSegmentation('/media/vaslem/Data/kaggle/input', image_set='val',
                                     transform=transform_func, target_transform=target_transform_func)
 
+    model_to_use = 'SimpleXUnet'
+    # model_to_use = 'Unet'
     CONFIG = Config(train_size=len(train_dataset), valid_size=100, batch_size=3,
-                   random_seed=42, lr=1e-2, identifier='SimpleXUnet')
+                   random_seed=42, lr=1e-2, identifier=model_to_use)
     train_data_loader = torch.utils.data.DataLoader(train_dataset,
                                           batch_size=CONFIG.batch_size,
                                           shuffle=True,
@@ -118,13 +68,18 @@ def main():
     valid_data_loader = torch.utils.data.DataLoader(valid_dataset, sampler=valid_sampler,
                                           batch_size=CONFIG.batch_size)
     device = 'cuda'
-    model = SimpleXUnet(encoder, train_dataset[0][0].unsqueeze(dim=0), 21).to(device)
+    if model_to_use == 'SimpleXUnet':
+
+        model = SimpleXUnet(encoder, train_dataset[0][0].unsqueeze(dim=0), 21).to(device)
+
+    elif model_to_use == 'Unet':
+        model = smp.Unet(encoder, classes=21).to(device)
     for param in model.encoder.parameters():
-        param.requires_grad = False
+            param.requires_grad = False
     # model_parameters = filter(lambda p: p.requires_grad, model.parameters())
     # params = sum([np.prod(p.size()) for p in model_parameters])
     # print(params)
-    optimizer = nn.optim.SGD(model.parameters(), CONFIG.lr)
+    optimizer = SGD(model.parameters(), CONFIG.lr)
     step = 0
     epochs_num = 30
 
