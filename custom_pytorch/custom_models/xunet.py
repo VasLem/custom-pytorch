@@ -225,8 +225,14 @@ class XUnet(nn.Module):
             for block in self.encoder_blocks:
                 encoded_features.append(block(encoded_features[-1]))
         previous_outputs = [input]
+        cnt = 0
         for feat, dec in zip(encoded_features[1:], self.decoder['decoding_columns']):
-            previous_outputs = dec.extract_features(feat, previous_outputs)
+            try:
+                previous_outputs = dec.extract_features(feat, previous_outputs)
+            except RuntimeError:
+                print(f"CUDA Error while handling layer {cnt}")
+                raise
+            cnt += 1
         features = previous_outputs
         features[1:] = [
             downsampler(feat) for downsampler, feat in

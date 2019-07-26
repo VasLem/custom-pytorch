@@ -24,7 +24,8 @@ def apply_reduction(value, reduction):
     if reduction != 'none':
         raise ValueError("Unknown reduction mode given, mean, sum or none expected")
 
-def get_model_name(config: Config, epoch=None, train_loss=None, valid_loss=None):
+def get_model_name(config: Config, epoch=None, train_loss=None, valid_loss=None,
+                   train_metric=None, valid_metric=None):
     """Returns the current model snapshot name, given the current configuration, epoch and losses
 
     :param config: the configuration
@@ -38,9 +39,12 @@ def get_model_name(config: Config, epoch=None, train_loss=None, valid_loss=None)
     :return: the model snapshot name
     :rtype: str
     """
-    name = f'{config.identifier}_D_{config.date}_DS_{config.train_size}'.replace(' ', '_')
+    name = f'{config.identifier}_D_{config.date}'
+    from collections import OrderedDict
+    to_add = {'Ep %d': epoch, 'TL %.2f': train_loss, 'VL %.2f': valid_loss, 'TM %.2f': train_metric,
+              'VM %.2f': valid_metric}
+    for form, item in to_add.items():
+        if item is not None:
+            name += " " + form % item
 
-    if epoch is not None or train_loss is not None or valid_loss is not None:
-        name += "_Ep_%d_TL_%.2f_VL_%.2f.pkl"%(epoch, train_loss, valid_loss)
-
-    return name
+    return name.replace(' ', '_')
