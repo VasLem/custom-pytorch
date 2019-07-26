@@ -25,7 +25,6 @@ class SubsetRandomSampler(Sampler):
         if not isinstance(self.num_samples, int) or self.num_samples <= 0:
             raise ValueError("num_samples should be a positive integer "
                              "value, but got num_samples={}".format(self.num_samples))
-        self.indices = choice(indices, self.num_samples, replace=self.replacement, p=self.p)
 
     @property
     def num_samples(self):
@@ -36,7 +35,8 @@ class SubsetRandomSampler(Sampler):
 
 
     def __iter__(self):
-        for ind in self.indices:
+        indices = choice(self.indices, self.num_samples, replace=self.replacement, p=self.p)
+        for ind in indices:
             yield ind
 
     def __len__(self):
