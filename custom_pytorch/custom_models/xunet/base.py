@@ -1,11 +1,13 @@
-from torch import nn
-import torch
-from copy import deepcopy as copy
 from abc import abstractmethod
-from segmentation_models_pytorch.base.model import Model
-from custom_pytorch.custom_layers.custom_xception_with_se import SEXceptionBlock
-from segmentation_models_pytorch.common.blocks import Conv2dReLU
+from copy import deepcopy as copy
+
+import torch
 import torch.nn.functional as F
+from segmentation_models_pytorch.base.model import Model
+from segmentation_models_pytorch.encoders import (get_encoder,
+                                                  get_preprocessing_fn)
+from torch import nn
+
 
 class _DecoderBlock(Model):
     def __init__(self, in_channels, out_channels, scale_ratio, *args, **kwargs):
@@ -18,6 +20,7 @@ class _DecoderBlock(Model):
     def forward(self, inputs):
         pass
 
+
 class _Downsampler(Model):
     def __init__(self, in_channels, out_channels, *args, **kwargs):
         super().__init__()
@@ -28,6 +31,16 @@ class _Downsampler(Model):
     def forward(self, inputs):
         pass
 
+
+class _Output(Model):
+    def __init__(self, in_channels, out_channels, *args, **kwargs):
+        super().__init__()
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+
+    @abstractmethod
+    def forward(self, inputs):
+        pass
 
 
 class DecodingColumn(Model):
@@ -82,7 +95,7 @@ class DecodingColumn(Model):
                     'Previous column needs to be 1 depth shorter than this one'
             self.column_decoders = [
                 decoder_block_class(encoder_output_shape[0], encoder_input_shape[0],
-                                              scale_ratio=self.encoder_ratio)]
+                                    scale_ratio=self.encoder_ratio)]
             self.output_shapes.append(encoder_input_shape)
             if depth != 1:
                 self.column_decoders = self.column_decoders + [
@@ -102,20 +115,19 @@ class DecodingColumn(Model):
         self.column_decoders = nn.ModuleList(self.column_decoders)
         self.initialize()
 
-
     def extract_features(self, inputs, previous_column_outputs):
         if self.depth == 0:
             return [inputs]
 
-
         features = [inputs]
         for cnt, (decoder, previous_column_output) in enumerate(zip(
                 self.column_decoders,  previous_column_outputs)):
-                if cnt:
-                    previous_column_output = self.column_downsamplers[cnt - 1](
-                        previous_column_output)
-                decoded = decoder(features[-1])
-                features.append(torch.cat((previous_column_output, decoded), dim=1))
+            if cnt:
+                previous_column_output = self.column_downsamplers[cnt - 1](
+                    previous_column_output)
+            decoded = decoder(features[-1])
+            features.append(
+                torch.cat((previous_column_output, decoded), dim=1))
         return features
 
     def forward(self, inputs, previous_column_outputs):
@@ -124,8 +136,7 @@ class DecodingColumn(Model):
         return feats[-1]
 
 
-
-class XUnet(nn.Module):
+class _XUnet(nn.Module):
 
     def __init__(self, inp_shape, decoder_block_class: _DecoderBlock,
                  downsampler_block_class: _Downsampler,
@@ -177,7 +188,8 @@ class XUnet(nn.Module):
         self.depth = len(encoder_blocks_out_shapes)
         self.encoder_blocks = encoder_blocks
         self.encoder_blocks_out_shapes = encoder_blocks_out_shapes
-        self.encoder_blocks_in_shapes = [inp_shape] + encoder_blocks_out_shapes[:-1]
+        self.encoder_blocks_in_shapes = [
+            inp_shape] + encoder_blocks_out_shapes[:-1]
 
         decoding_columns = []
         self.shared_decoders = shared_decoders
@@ -185,12 +197,12 @@ class XUnet(nn.Module):
             if not decoding_columns:
                 decoding_columns.append(
                     DecodingColumn(d + 1, decoder_block_class, downsampler_block_class,
-                    self.encoder_blocks_in_shapes[d], self.encoder_blocks_out_shapes[d]))
+                                   self.encoder_blocks_in_shapes[d], self.encoder_blocks_out_shapes[d]))
             else:
                 decoding_columns.append(
                     DecodingColumn(d + 1, decoder_block_class, downsampler_block_class,
-                    self.encoder_blocks_in_shapes[d], self.encoder_blocks_out_shapes[d],
-                    decoding_columns[-1]))
+                                   self.encoder_blocks_in_shapes[d], self.encoder_blocks_out_shapes[d],
+                                   decoding_columns[-1]))
         if self.shared_decoders:
             for column in decoding_columns[:-1]:
                 for cnt in range(len(column.column_decoders)):
@@ -236,98 +248,44 @@ class XUnet(nn.Module):
         features = previous_outputs
         features[1:] = [
             downsampler(feat) for downsampler, feat in
-            zip(self.decoder['final_downsamplers'][::-1],features[1:])]
+            zip(self.decoder['final_downsamplers'][::-1], features[1:])]
         return features
 
 
-class SimpleDecoderBlock(_DecoderBlock):
-    def __init__(self, inp_channels, out_channels, scale_ratio):
-        super().__init__(inp_channels, out_channels, scale_ratio)
-        sequence = []
-        if scale_ratio > 1:
-            sequence.append(nn.UpsamplingBilinear2d(scale_factor=scale_ratio))
-        sequence.append(nn.Conv2d(inp_channels, out_channels, 3, padding=1))
-        if scale_ratio < 1:
-            sequence.append(nn.FractionalMaxPool2d(3, output_ratio=scale_ratio))
-        sequence.append(nn.ReLU6(inplace=True))
-        self.sequence = nn.Sequential(*sequence)
-        self.initialize()
-
-    def forward(self, input):
-        return self.sequence(input)
-
-class UnetDecoderBlock(_DecoderBlock):
-    def __init__(self, inp_channels, out_channels, scale_ratio, use_batchnorm=True):
-        super().__init__(inp_channels, out_channels, scale_ratio)
-        self.block = nn.Sequential(
-            Conv2dReLU(inp_channels, out_channels, kernel_size=3, padding=1, use_batchnorm=use_batchnorm),
-            Conv2dReLU(out_channels, out_channels, kernel_size=3, padding=1, use_batchnorm=use_batchnorm),
-        )
-        self.initialize()
-
-
-    def forward(self, x):
-        # x, skip = x
-        x = F.interpolate(x, scale_factor=self.scale_ratio, mode='nearest')
-        # if skip is not None:
-        #     x = torch.cat([x, skip], dim=1)
-        x = self.block(x)
-        return x
-
-class SEXceptionDecoderBlock(_DecoderBlock):
-    def __init__(self, in_channels, out_channels, scale_ratio, *args, **kwargs):
-        super().__init__(in_channels, out_channels, scale_ratio)
-        self.block = SEXceptionBlock(in_channels, out_channels, 1)
-        self.initialize()
-
-    def forward(self, x):
-        # x, skip = x
-        x = F.interpolate(x, scale_factor=self.scale_ratio, mode='nearest')
-        # if skip is not None:
-        #     x = torch.cat([x, skip], dim=1)
-        x = self.block(x)
-        return x
-
-
-class SimpleDownsamplerBlock(_Downsampler):
-    def __init__(self, inp_channels, out_channels):
-        super().__init__(inp_channels, out_channels)
-        self.sequence = nn.Sequential(
-            nn.Conv2d(inp_channels, out_channels, 3, padding=1),
-            nn.ReLU6())
-        self.initialize()
-
-    def forward(self, input):
-        return self.sequence(input)
-
-class SEXceptionDownsamplerBlock(_Downsampler):
-    def __init__(self, inp_channels, out_channels):
-        super().__init__(inp_channels, out_channels)
-        self.sequence = SEXceptionBlock(inp_channels, out_channels, 1)
-        self.initialize()
-
-    def forward(self, input):
-        return self.sequence(input)
-
-from segmentation_models_pytorch.encoders import get_preprocessing_fn, get_encoder
-class SimpleXUnet(XUnet):
-    def __init__(self, encoder, sample_input, n_categories, encoder_features_method=None,
+class XUnet(_XUnet):
+    def __init__(self, encoder, decoder_block_class: _Decoder,
+                 downsampler_block_class: _Downsampler, output_block_class: _Output,
+                 sample_input, n_categories, encoder_features_method=None,
                  shared_decoders=False, reversed_features=True, activation='sigmoid'):
-        """A simple XUnet
+        """A XUnet that can be deployed by supplying the encoder, the decoder block class, the
+        downsampler block class and the output block class. It includes also a `predict` method,
+        given that the `forward` method will not use activation, as the computation of loss usually
+        is more stable without it.
 
-        :param encoder: the encoder to use
+        :param encoder: the encoder to use. Can be a string, if `segmentation_models_pytorch` package
+            encoder is to be provided
         :type encoder: nn.Module or str
-        :param encoder_features_method: the method name to use to extract features from the encoder,
-         if None the encoder will be just called, defaults to None
-        :type encoder_features_method: str
-        :param sample_input: the sample input to pass to encoder
+        :param decoder_block_class: the decoder block to be used
+        :type decoder_block_class: _Decoder
+        :param downsampler_block_class: the downsampler block to be used
+        :type downsampler_block_class: _Downsampler
+        :param output_block_class: the output block to be used
+        :type output_block_class: _Output
+        :param sample_input: the input to be used to infer the encoder features size
         :type sample_input: Tensor
         :param n_categories: the number of categories
         :type n_categories: int
+        :param encoder_features_method: the method name to use to extract features from the encoder,
+         if None the encoder will be just called, defaults to None
+        :type encoder_features_method: str
+
         :param shared_decoders: whether to use shared decoders, defaults to False
         :type shared_decoders: bool, optional
         :param reversed_features: whether to reverse the supplied encoder features, defaults to True
         :type reversed_features: bool, optional
+        :param activation: the activation to be used during prediction, can be None, `softmax`,
+            `sigmoid` or a callable
+        :type activation: None or str or callable
         """
         if isinstance(encoder, str):
             encoder = get_encoder(encoder, 'imagenet')
@@ -339,14 +297,14 @@ class SimpleXUnet(XUnet):
         if reversed_features:
             feats = feats[::-1]
         out_shapes = [feat.size()[-3:] for feat in feats]
-        print(out_shapes)
-        super().__init__(inp_shape, SEXceptionDecoderBlock,
-                 SEXceptionDownsamplerBlock,
-                 out_shapes, shared_decoders=shared_decoders)
+        super().__init__(inp_shape, decoder_block_class,
+                         downsampler_block_class,
+                         out_shapes, shared_decoders=shared_decoders)
         self.encoder_features_method = encoder_features_method
         self.reversed_features = reversed_features
         self.n_categories = n_categories
-        self.out_model = nn.Conv2d(inp_shape[0], self.n_categories, 3, padding=1)
+        self.out_model = output_block_class(
+            inp_shape[0], self.n_categories)
         self.encoder = encoder
         if callable(activation) or activation is None:
             self.activation = activation
@@ -355,17 +313,20 @@ class SimpleXUnet(XUnet):
         elif activation == 'sigmoid':
             self.activation = nn.Sigmoid()
         else:
-            raise ValueError('Activation should be "sigmoid"/"softmax"/callable/None')
+            raise ValueError(
+                'Activation should be "sigmoid"/"softmax"/callable/None')
 
     def forward(self, inputs):
-        enc_features = getattr(self.encoder, self.encoder_features_method)(inputs)
+        enc_features = getattr(
+            self.encoder, self.encoder_features_method)(inputs)
         if self.reversed_features:
             enc_features = enc_features[::-1]
         ret = super().forward(inputs, enc_features)
         return self.out_model(ret)
 
     def extract_features(self, input):
-        enc_features = getattr(self.encoder, self.encoder_features_method)(input)
+        enc_features = getattr(
+            self.encoder, self.encoder_features_method)(input)
         if self.reversed_features:
             enc_features = enc_features[::-1]
         return super().extract_features(input, encoded_features=enc_features)
