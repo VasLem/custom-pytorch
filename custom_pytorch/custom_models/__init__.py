@@ -3,3 +3,4 @@ from .up_down_sampling_segmentation import UpSamplingBlock, DownSamplingBlock, S
 from .up_down_sampling_segmentation2 import SamplingSegmentationV3
 from .efficient_sampling_segmentation import SamplingSegmentationV4
 from .xunet.models import *
+from .xunet import XUnet
