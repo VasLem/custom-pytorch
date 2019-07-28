@@ -26,9 +26,11 @@ class XceptionBlock(nn.Module):
         super().__init__()
         reps = max(1, reps)
         if out_filters != in_filters or strides != 1:
-            self.skip = nn.Conv2d(in_filters, out_filters,
-                                  1, stride=strides, bias=False)
-            self.skipbn = nn.BatchNorm2d(out_filters)
+            skip = [nn.Conv2d(in_filters, out_filters,
+                                  1, stride=strides, bias=False)]
+            if end_with_relu:
+                skip.append(nn.BatchNorm2d(out_filters))
+            self.skip = nn.Sequential(*skip)
         else:
             self.skip = None
 
@@ -51,31 +53,31 @@ class XceptionBlock(nn.Module):
             for in_filt, out_filt in zip(in_filters_group, out_filters_group):
                 rep.append(SeparableConv2d(in_filt, out_filt,
                                         3, stride=1, padding=1, bias=False))
-                rep.append(nn.ReLU(inplace=True))
+                rep.append(nn.LeakyReLU(inplace=True))
                 rep.append(nn.BatchNorm2d(out_filt))
         else:
             if expand_first:
                 rep.append(SeparableConv2d(in_filters, out_filters,
                                         3, stride=1, padding=1, bias=False))
-                rep.append(nn.ReLU(inplace=True))
+                rep.append(nn.LeakyReLU(inplace=True))
                 rep.append(nn.BatchNorm2d(out_filters))
                 for _ in range(reps - 1):
                     rep.append(SeparableConv2d(out_filters, out_filters))
-                    rep.append(nn.ReLU(inplace=True))
+                    rep.append(nn.LeakyReLU(inplace=True))
                     rep.append(nn.BatchNorm2d(out_filters))
             else:
                 for _ in range(reps - 1):
                     rep.append(SeparableConv2d(in_filters, in_filters))
-                    rep.append(nn.ReLU(inplace=True))
+                    rep.append(nn.LeakyReLU(inplace=True))
                     rep.append(nn.BatchNorm2d(in_filters))
                 rep.append(SeparableConv2d(in_filters, out_filters,
                                         3, stride=1, padding=1, bias=False))
-                rep.append(nn.ReLU(inplace=True))
+                rep.append(nn.LeakyReLU(inplace=True))
                 rep.append(nn.BatchNorm2d(out_filters))
 
         if start_with_relu:
             rep = rep[:-2]
-            rep = [nn.ReLU(inplace=True), nn.BatchNorm2d(in_filters)] + rep
+            rep = [nn.LeakyReLU(inplace=True), nn.BatchNorm2d(in_filters)] + rep
 
         elif not end_with_relu:
             rep = rep[:-2]
@@ -89,10 +91,6 @@ class XceptionBlock(nn.Module):
 
         if self.skip is not None:
             skip = self.skip(inp)
-            skip = self.skipbn(skip)
-        else:
-            skip = inp
-        # print(self.in_filters, self.out_filters, x.size(), skip.size())
-        x += skip
+            x += skip
         return x
 

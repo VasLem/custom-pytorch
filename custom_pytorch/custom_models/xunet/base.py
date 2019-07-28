@@ -3,7 +3,7 @@ from copy import deepcopy as copy
 
 import torch
 import torch.nn.functional as F
-from segmentation_models_pytorch.base.model import Model
+from custom_pytorch.custom_layers.base import Model
 from segmentation_models_pytorch.encoders import (get_encoder,
                                                   get_preprocessing_fn)
 from torch import nn
@@ -136,7 +136,7 @@ class DecodingColumn(Model):
         return feats[-1]
 
 
-class _XUnet(Model):
+class _XUnet(nn.Module):
 
     def __init__(self, inp_shape, decoder_block_class: _DecoderBlock,
                  downsampler_block_class: _Downsampler,
@@ -315,7 +315,6 @@ class XUnet(_XUnet):
         else:
             raise ValueError(
                 'Activation should be "sigmoid"/"softmax"/callable/None')
-        self.initialize()
 
     def forward(self, inputs):
         enc_features = getattr(

@@ -1,4 +1,8 @@
 from custom_pytorch.custom_config import Config
+from .calc_number import *
+from .compute_layers import *
+
+
 def check_stage(stage, train=None, valid=None, test=None):
     if stage == 'train':
         return train
@@ -41,7 +45,7 @@ def get_model_name(config: Config, epoch=None, train_loss=None, valid_loss=None,
     """
     name = f'{config.identifier}_D_{config.date}'
     from collections import OrderedDict
-    to_add = {'Ep %d': epoch, 'TL %.2f': train_loss, 'VL %.2f': valid_loss, 'TM %.2f': train_metric,
+    to_add = {'Size %d': config.im_size, 'Ep %d': epoch, 'TL %.2f': train_loss, 'VL %.2f': valid_loss, 'TM %.2f': train_metric,
               'VM %.2f': valid_metric}
     for form, item in to_add.items():
         if item is not None:

@@ -3,7 +3,9 @@ from torch import nn
 import torch.nn.functional as F
 from custom_pytorch.custom_layers.custom_xception_with_se import SEXceptionBlock
 from custom_pytorch.custom_utils.compute_layers import compute_needed_layers
+from custom_pytorch.custom_layers.custom_xception_block import SeparableConv2d
 from segmentation_models_pytorch.common.blocks import Conv2dReLU
+from custom_pytorch.custom_layers.separable_conv2relu import SeparableConv2dReLU
 
 class SimpleDecoderBlock(_DecoderBlock):
     def __init__(self, inp_channels, out_channels, scale_ratio):
@@ -42,16 +44,19 @@ class UnetDecoderBlock(_DecoderBlock):
 class SEXceptionDecoderBlock(_DecoderBlock):
     def __init__(self, in_channels, out_channels, scale_ratio, *args, **kwargs):
         super().__init__(in_channels, out_channels, scale_ratio)
+        self.conv = SeparableConv2dReLU(in_channels, in_channels, 3, padding=1)
         self.reps = compute_needed_layers(in_channels, out_channels)
+        # self.block = nn.Sequential(
+        #     SeparableConv2dReLU(in_channels, out_channels, kernel_size=3, padding=1, use_batchnorm=True),
+        #     # SeparableConv2dReLU(out_channels, out_channels, kernel_size=3, padding=1, use_batchnorm=True),
+        # )
         self.block = SEXceptionBlock(in_channels, out_channels,
                                      self.reps)
         self.initialize()
 
     def forward(self, x):
-        # x, skip = x
+        x = self.conv(x)
         x = F.interpolate(x, scale_factor=self.scale_ratio, mode='nearest')
-        # if skip is not None:
-        #     x = torch.cat([x, skip], dim=1)
         x = self.block(x)
         return x
 
