@@ -32,7 +32,7 @@ class _Downsampler(Model):
         pass
 
 
-class _Output(Model):
+class _OutputBlock(Model):
     def __init__(self, in_channels, out_channels, *args, **kwargs):
         super().__init__()
         self.in_channels = in_channels
@@ -136,7 +136,7 @@ class DecodingColumn(Model):
         return feats[-1]
 
 
-class _XUnet(nn.Module):
+class _XUnet(Model):
 
     def __init__(self, inp_shape, decoder_block_class: _DecoderBlock,
                  downsampler_block_class: _Downsampler,
@@ -253,8 +253,8 @@ class _XUnet(nn.Module):
 
 
 class XUnet(_XUnet):
-    def __init__(self, encoder, decoder_block_class: _Decoder,
-                 downsampler_block_class: _Downsampler, output_block_class: _Output,
+    def __init__(self, encoder, decoder_block_class: _DecoderBlock,
+                 downsampler_block_class: _Downsampler, output_block_class: _OutputBlock,
                  sample_input, n_categories, encoder_features_method=None,
                  shared_decoders=False, reversed_features=True, activation='sigmoid'):
         """A XUnet that can be deployed by supplying the encoder, the decoder block class, the
@@ -303,7 +303,7 @@ class XUnet(_XUnet):
         self.encoder_features_method = encoder_features_method
         self.reversed_features = reversed_features
         self.n_categories = n_categories
-        self.out_model = output_block_class(
+        self.output_layer = output_block_class(
             inp_shape[0], self.n_categories)
         self.encoder = encoder
         if callable(activation) or activation is None:
@@ -315,6 +315,7 @@ class XUnet(_XUnet):
         else:
             raise ValueError(
                 'Activation should be "sigmoid"/"softmax"/callable/None')
+        self.initialize()
 
     def forward(self, inputs):
         enc_features = getattr(
@@ -322,7 +323,7 @@ class XUnet(_XUnet):
         if self.reversed_features:
             enc_features = enc_features[::-1]
         ret = super().forward(inputs, enc_features)
-        return self.out_model(ret)
+        return self.output_layer(ret)
 
     def extract_features(self, input):
         enc_features = getattr(

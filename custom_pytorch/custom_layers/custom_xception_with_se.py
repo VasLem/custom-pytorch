@@ -7,9 +7,12 @@ class SEXceptionBlock(XceptionBlock):
     numbers of input layers and output layers differ, or when the stride is != 1.
     """
     def __init__(self, in_filters, out_filters, reps=1, strides=1,
-                 start_with_relu=False, end_with_relu=True):
+                 start_with_relu=False, end_with_relu=True, apply_smooth_transform=False,
+                 expand_first=True):
         super().__init__(in_filters=in_filters, out_filters=out_filters,
-                         reps=reps, start_with_relu=start_with_relu, end_with_relu=end_with_relu)
+                         reps=reps, start_with_relu=start_with_relu,
+                         end_with_relu=end_with_relu, apply_smooth_transform=apply_smooth_transform,
+                         expand_first=expand_first)
         if out_filters != in_filters or strides != 1:
             self.se_block = SqueezeAndExcitation(in_filters, reduction=min(in_filters, 16))
 
