@@ -35,22 +35,29 @@ class DiceCoeff(nn.Module):
                 raise ValueError("Supplied threshold is not numeric")
         self.threshold = threshold
 
-    def _compute(self, input, target, wrt_batch):
-        smooth = 1.
-        if self.activation is not None:
+    def _compute(self, input, target, wrt_batch, no_reduce=False, do_activation=True):
+        smooth = 1e-7
+
+        if self.activation is not None and do_activation:
             input = self.activation(input)
-        if self.pos_weight is not None:
+
+        if not no_reduce:
+            iflat = input.contiguous().view(input.size()[0], -1)
+            tflat = target.contiguous().view(input.size()[0], -1)
+        else:
+            iflat = input.contiguous()
+            tflat = target.contiguous()
+        if self.pos_weight is not None and not no_reduce:
             self.pos_weight = self.pos_weight.to(input.device)
-            input = input.view(
-                input.size()[0], -1) * self.pos_weight.view(1, -1)
-            target = target.view(
-                target.size()[0], -1) * self.pos_weight.view(1, -1)
-        iflat = input.contiguous().view(input.size()[0], -1)
+            iflat = iflat * self.pos_weight.view(1, -1)
+            tflat = tflat * self.pos_weight.view(1, -1)
         if self.threshold is not None:
             iflat = (iflat >= self.threshold).float()
-        tflat = target.contiguous().view(input.size()[0], -1)
         intersection = (iflat * tflat)
         addition = iflat + tflat
+        if no_reduce:
+            return ((2. * intersection + smooth) /
+                    (addition + smooth))
         if wrt_batch:
             intersection = torch.sum(intersection, dim=1)
             addition = torch.sum(addition, dim=1)
@@ -60,7 +67,8 @@ class DiceCoeff(nn.Module):
         return ((2. * intersection + smooth) /
                 (addition + smooth))
 
-    def forward(self, input, target, wrt_batch=True, reduction='mean'):
+    def forward(self, input, target, wrt_batch=True, reduction='mean', _no_reduce=False,
+                do_activation=True):
         """
         :param input: the input
         :type input: Tensor
@@ -73,7 +81,8 @@ class DiceCoeff(nn.Module):
             only available is `mean`, `sum` or `none`, defaults to `mean`
         :type reduction: str, optional
         """
-        coeff = self._compute(input, target, wrt_batch)
-        if wrt_batch:
+        coeff = self._compute(input, target, wrt_batch,
+                              no_reduce=_no_reduce, do_activation=do_activation)
+        if wrt_batch and not _no_reduce:
             return apply_reduction(coeff, reduction)
         return coeff

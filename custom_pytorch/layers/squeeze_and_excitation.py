@@ -1,4 +1,6 @@
 from torch import nn
+
+
 class SELayer(nn.Module):
     def __init__(self, channel, reduction=16):
         super(SELayer, self).__init__()
