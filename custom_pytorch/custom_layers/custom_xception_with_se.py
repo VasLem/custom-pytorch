@@ -8,13 +8,13 @@ class SEXceptionBlock(XceptionBlock):
     """
     def __init__(self, in_filters, out_filters, reps=1, strides=1,
                  start_with_relu=False, end_with_relu=True, apply_smooth_transform=False,
-                 expand_first=True):
+                 expand_first=True, reduction=4):
         super().__init__(in_filters=in_filters, out_filters=out_filters,
                          reps=reps, start_with_relu=start_with_relu,
                          end_with_relu=end_with_relu, apply_smooth_transform=apply_smooth_transform,
                          expand_first=expand_first, strides=strides)
         if out_filters != in_filters or strides != 1:
-            self.se_block = SqueezeAndExcitation(in_filters, reduction=min(in_filters, 16))
+            self.se_block = SqueezeAndExcitation(in_filters, reduction=min(in_filters, reduction))
 
     def forward(self, inp):
         """Following SE-PRE block connections
