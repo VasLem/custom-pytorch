@@ -25,14 +25,12 @@ class XceptionBlock(nn.Module):
                  expand_first=True):
         super().__init__()
         reps = max(1, reps)
-        if out_filters != in_filters or strides != 1:
-            skip = [nn.Conv2d(in_filters, out_filters,
-                                  1, stride=strides, bias=False)]
-            if end_with_relu:
-                skip.append(nn.BatchNorm2d(out_filters))
-            self.skip = nn.Sequential(*skip)
-        else:
-            self.skip = None
+
+        skip = [nn.Conv2d(in_filters, out_filters,
+                                1, stride=strides, bias=False)]
+        if end_with_relu:
+            skip.append(nn.BatchNorm2d(out_filters))
+        self.skip = nn.Sequential(*skip)
 
         rep = []
         self.in_filters = in_filters

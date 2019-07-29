@@ -13,6 +13,7 @@ def check_stage(stage, train=None, valid=None, test=None):
     raise ValueError(f"Unknown stage provided: {stage} ."
                      " It must be one of the following: 'train', 'valid', 'test'")
 
+
 def apply_reduction(value, reduction):
     """reduction emulator
 
@@ -26,7 +27,10 @@ def apply_reduction(value, reduction):
     if reduction == 'sum':
         return value.sum()
     if reduction != 'none':
-        raise ValueError("Unknown reduction mode given, mean, sum or none expected")
+        raise ValueError(
+            "Unknown reduction mode given, mean, sum or none expected")
+    return value
+
 
 def get_model_name(config: Config, epoch=None, train_loss=None, valid_loss=None,
                    train_metric=None, valid_metric=None):

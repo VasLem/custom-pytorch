@@ -4,7 +4,7 @@ from custom_pytorch.custom_utils import apply_reduction
 
 
 class DiceCoeff(nn.Module):
-    def __init__(self, pos_weight=None, threshold=None):
+    def __init__(self, pos_weight=None, threshold=None, activation='sigmoid'):
         """
         :param pos_weight: Positional weights given to each element of the tensor,
             defaults to None
@@ -14,6 +14,9 @@ class DiceCoeff(nn.Module):
         :type threshold: numeric, optional
         """
         super().__init__()
+        self.activation = activation
+        if self.activation == 'sigmoid':
+            self.activation = nn.Sigmoid()
         if pos_weight is not None:
             try:
                 pos_weight.size()
@@ -34,6 +37,8 @@ class DiceCoeff(nn.Module):
 
     def _compute(self, input, target, wrt_batch):
         smooth = 1.
+        if self.activation is not None:
+            input = self.activation(input)
         if self.pos_weight is not None:
             self.pos_weight = self.pos_weight.to(input.device)
             input = input.view(

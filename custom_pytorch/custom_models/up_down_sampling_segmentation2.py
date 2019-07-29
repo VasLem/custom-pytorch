@@ -36,7 +36,7 @@ class EncodingBlock(nn.Module):
 
 
 class DecodingBlock(nn.Module):
-    def __init__(self, n_channels, depth, inv_depth, resolution=1, use_transpose=True):
+    def __init__(self, n_channels, depth, inv_depth, resolution=1, use_transpose=False):
         super().__init__()
         if depth != 0:
             self.inp_channels = int(
@@ -73,16 +73,17 @@ class SamplingSegmentationV3(Model):
         self.encoding_blocks = nn.ModuleList([EncodingBlock(n_channels, d, resolution)
                                                    for d in range(self.depth)])
         self.upsamplers = nn.ModuleList([
-            nn.Sequential((
-                nn.ConvTranspose2d(self.decoding_blocks[::-1][d].out_channels,
-                            self.decoding_blocks[::-1][d].out_channels, 2 ** d + 1,
-                            stride=2 ** d,
-                            padding=1, output_padding=1)
-                if d > 0 else nn.Conv2d(self.decoding_blocks[::-1][d].out_channels,
-                            self.decoding_blocks[::-1][d].out_channels, 1)),
-                # nn.UpsamplingNearest2d(scale_factor=2 ** d),
+            nn.Sequential(
+                # (nn.ConvTranspose2d(self.decoding_blocks[::-1][d].out_channels,
+                #             self.decoding_blocks[::-1][d].out_channels, 2 ** d + 1,
+                #             stride=2 ** d,
+                #             padding=1, output_padding=1)
+                # if d > 0 else nn.Conv2d(self.decoding_blocks[::-1][d].out_channels,
+                #             self.decoding_blocks[::-1][d].out_channels, 1)),
+                nn.UpsamplingNearest2d(scale_factor=2 ** d),
                 ExpandedSEXceptionBlock(self.decoding_blocks[::-1][d].out_channels,
-                                        self.decoding_blocks[::-1][d].out_channels, d))
+                                        self.decoding_blocks[::-1][d].out_channels, d)
+                         )
 
             for d in range(self.depth + 1)])
         # self.downsamplers = nn.ModuleList([SEXceptionBlock()])
@@ -98,7 +99,7 @@ class SamplingSegmentationV3(Model):
             end_with_relu=False)
         self.initialize()
 
-    def forward(self, image, use_sigmoid=False):
+    def forward(self, image):
         outputs = []
         inputs = [self.init_block(image)]
         assert image.size()[1] == self.n_channels, \
@@ -119,9 +120,13 @@ class SamplingSegmentationV3(Model):
             outputs.append(upsampler(x))
         output = self.final_layer2(self.final_layer1(
             self.dropout(torch.cat(outputs, dim=1))))
-        if use_sigmoid:
-            output = torch.sigmoid(output)
         return output
+
+    def predict(self, image):
+        output = self(image)
+        output = nn.Sigmoid()(output)
+        return output
+
 
 if __name__ == '__main__':
     net = SamplingSegmentationV3(3, 4, 6, 2)

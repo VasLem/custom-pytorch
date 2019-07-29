@@ -26,9 +26,8 @@ class SEXceptionXUnet(XUnet):
         """
 
         super().__init__(encoder=encoder,  decoder_block_class=SEXceptionDecoderBlock,
-                 downsampler_block_class=SEXceptionDownsamplerBlock,
-                 output_block_class=SEXceptionOutputBlock, sample_input=sample_input,
-                 n_categories=n_categories, encoder_features_method=encoder_features_method,
-                 shared_decoders=shared_decoders, reversed_features=reversed_features,
-                 activation=activation)
-
+                         downsampler_block_class=SEXceptionDownsamplerBlock,
+                         output_block_class=SEXceptionOutputBlock, sample_input=sample_input,
+                         n_categories=n_categories, encoder_features_method=encoder_features_method,
+                         shared_decoders=shared_decoders, reversed_features=reversed_features,
+                         activation=activation)
