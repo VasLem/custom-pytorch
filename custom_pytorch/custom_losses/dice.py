@@ -7,15 +7,16 @@ from custom_pytorch.losses.dice import DiceLoss as _DiceLoss
 from custom_pytorch.custom_utils import apply_reduction
 
 
-__all__ = ['CEDiceLoss', 'DiceLoss', 'BCEAndDiceLoss', 'BCEAndCEDiceLoss', 'DilatedCEDiceLoss']
+__all__ = ['CEDiceLoss', 'DiceLoss', 'BCEAndDiceLoss',
+           'BCEAndCEDiceLoss', 'WindowedCEDiceLoss']
 
 
 class DiceLoss(_DiceLoss):
     __name__ = 'dice_loss'
 
 
-class DilatedCEDiceLoss(nn.Module):
-    __name__ = 'dilated_ce_dice_loss'
+class WindowedCEDiceLoss(nn.Module):
+    __name__ = 'windowed_ce_dice_loss'
 
     def __init__(self, *args, red_kernel_size=3, **kwargs):
         super().__init__()
@@ -24,6 +25,7 @@ class DilatedCEDiceLoss(nn.Module):
         self.kernel = torch.ones(
             (1, 1, red_kernel_size, red_kernel_size)) * 1/(red_kernel_size**2)
         self.pad = nn.ConstantPad2d((self.red_kernel_size - 1) // 2, 1)
+        self.mask_pad = nn.ConstantPad2d((self.red_kernel_size - 1) // 2, 0)
 
     def forward(self, input, target, reduction='mean'):
         self.kernel = self.kernel.to(input.device)
@@ -38,9 +40,6 @@ class DilatedCEDiceLoss(nn.Module):
         neg_coeffs = self.pad(F.conv2d(neg_coeffs,
                                        self.kernel))
         # remove the outer bounds from the play -> a necessary drawback of this loss
-        mask = (self.pad(F.conv2d(target, self.kernel)) > 0).float() - target
-        neg_coeffs[mask] = 1
-        pos_coeffs[mask] = 1
         loss = - (torch.log2(pos_coeffs + 1e-7) +
                   torch.log2(neg_coeffs + 1e-7))
 
@@ -48,7 +47,7 @@ class DilatedCEDiceLoss(nn.Module):
 
 
 class CEDiceLoss(nn.Module):
-    __name__ = 'dilated_ce_dice_loss'
+    __name__ = 'ce_dice_loss'
 
     def __init__(self, *args, **kwargs):
         super().__init__()
