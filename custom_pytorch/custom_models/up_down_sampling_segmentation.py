@@ -115,7 +115,7 @@ class SamplingSegmentationV2(nn.Module):
                                      for d in range(self.depth)])
         self.upsamplers = nn.ModuleList([nn.UpsamplingNearest2d(
             scale_factor=2 ** d) for d in range(self.depth + 1)])
-        self.dropout = nn.Dropout2d(p=0.2, inplace=True)
+        self.dropout = nn.Dropout2d(p=0.2, inplace=False)
         self.final_layer1 = XceptionBlock(
             self.n_channels * 2 ** depth,
             n_categories * self.n_channels, reps=self.depth//2)

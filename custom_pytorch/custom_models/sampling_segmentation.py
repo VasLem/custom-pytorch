@@ -31,7 +31,7 @@ class XceptionBlock(nn.Module):
         else:
             self.skip = None
 
-        self.relu = nn.ReLU(inplace=True)
+        self.relu = nn.ReLU(inplace=False)
         rep = []
 
         filters = in_filters

@@ -1,11 +1,13 @@
 from .custom_xception_block import XceptionBlock
 from custom_pytorch.layers import SqueezeAndExcitation
 
+
 class SEXceptionBlock(XceptionBlock):
     """Exception Block, with the Squeeze and Excitation variant. Folowing SE-PRE strategy.
     The SE variant is applied only when the skip connection is activated, which happens if the
     numbers of input layers and output layers differ, or when the stride is != 1.
     """
+
     def __init__(self, in_filters, out_filters, reps=1, strides=1,
                  start_with_relu=False, end_with_relu=True, apply_smooth_transform=False,
                  expand_first=True, reduction=4):
@@ -13,17 +15,20 @@ class SEXceptionBlock(XceptionBlock):
                          reps=reps, start_with_relu=start_with_relu,
                          end_with_relu=end_with_relu, apply_smooth_transform=apply_smooth_transform,
                          expand_first=expand_first, strides=strides)
-        self.se_block = SqueezeAndExcitation(in_filters, reduction=min(in_filters, reduction))
+        self.se_block = SqueezeAndExcitation(
+            in_filters, reduction=min(in_filters, reduction))
 
     def forward(self, inp):
         """Following SE-PRE block connections
         """
         x = inp
-        if self.skip is not None:
-            x = self.se_block(inp)
+        x = self.se_block(inp)
         x = self.rep(x)
         if self.skip is not None:
             skip = self.skip(inp)
-            x += skip
+            x = x + skip
+        else:
+            x = x + inp
+        if self.ending_relu is not None:
+            x = self.ending_relu(x)
         return x
-

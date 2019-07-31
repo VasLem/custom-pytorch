@@ -16,7 +16,7 @@ class SimpleDecoderBlock(_DecoderBlock):
         sequence.append(nn.Conv2d(inp_channels, out_channels, 3, padding=1))
         if scale_ratio < 1:
             sequence.append(nn.FractionalMaxPool2d(3, output_ratio=scale_ratio))
-        sequence.append(nn.ReLU6(inplace=True))
+        sequence.append(nn.ReLU6(inplace=False))
         self.sequence = nn.Sequential(*sequence)
         self.initialize()
 

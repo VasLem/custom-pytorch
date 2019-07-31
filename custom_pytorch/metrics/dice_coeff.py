@@ -34,19 +34,15 @@ class DiceCoeff(nn.Module):
                 raise ValueError("Supplied threshold is not numeric")
         self.threshold = threshold
 
-    def _compute(self, input, target, no_reduce=False):
+    def _compute(self, input, target):
         smooth = 1.
-
+        input = input.contiguous()
+        target = target.contiguous()
         if self.activation is not None:
             input = self.activation(input)
-
-        if not no_reduce:
-            iflat = input.view(input.size()[0], -1)
-            tflat = target.view(input.size()[0], -1)
-        else:
-            iflat = input
-            tflat = target
-        if self.pos_weight is not None and not no_reduce:
+        iflat = input.view(input.size()[0], -1)
+        tflat = target.view(input.size()[0], -1)
+        if self.pos_weight is not None:
             self.pos_weight = self.pos_weight.to(input.device)
             iflat = iflat * self.pos_weight.view(1, -1)
             tflat = tflat * self.pos_weight.view(1, -1)
@@ -54,19 +50,17 @@ class DiceCoeff(nn.Module):
             iflat = (iflat >= self.threshold).float()
         intersection = (iflat * tflat)
         addition = iflat + tflat
-        if not no_reduce:
-            intersection = intersection.sum()
-            addition = addition.sum()
+        intersection = intersection.sum()
+        addition = addition.sum()
         return ((2. * intersection + smooth) /
                 (addition + smooth))
 
-    def forward(self, input, target, _no_reduce=False):
+    def forward(self, input, target):
         """
         :param input: the input
         :type input: Tensor
         :param target: the target
         :type target: Tensor
         """
-        coeff = self._compute(input, target,
-                              no_reduce=_no_reduce)
+        coeff = self._compute(input, target)
         return coeff
