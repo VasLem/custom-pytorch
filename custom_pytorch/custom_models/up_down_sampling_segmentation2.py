@@ -33,11 +33,11 @@ class ExpandedXceptionBlock(nn.Module):
         rep = []
         for in_filt, out_filt, stride in zip(inp_channels_group, out_channels_group, strides):
             rep.append(nn.Sequential(
-                XceptionBlock(in_filt, in_filt, 2),
+                XceptionBlock(in_filt, in_filt, 1),
                 XceptionBlock(in_filt,
                               out_filt,
-                              strides=stride, reps=depth),
-                XceptionBlock(out_filt, out_filt, 2)))
+                              strides=stride, reps=2),
+                XceptionBlock(out_filt, out_filt, 1)))
         self.sequence = nn.Sequential(*rep)
 
     def forward(self, input):
@@ -110,7 +110,7 @@ class SamplingSegmentationV3(Model):
             [block.out_channels for block in self.decoding_blocks])
         final_layers = [
             ExpandedXceptionBlock(self.final_layer1_inp_channels, n_categories * resolution,
-                                  depth=self.depth * resolution),
+                                  depth=self.depth),
             nn.Conv2d(n_categories * resolution, n_categories, 1)]
         self.final_layer = nn.Sequential(*final_layers)
         self.initialize()
