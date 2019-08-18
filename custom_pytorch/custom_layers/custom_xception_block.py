@@ -27,7 +27,7 @@ class XceptionBlock(nn.Module):
         reps = max(1, reps)
         self.ending_relu = None
         if end_with_relu:
-            self.ending_relu = nn.ELU(inplace=False)
+            self.ending_relu = nn.LeakyReLU(inplace=False)
         self.skip = None
         if in_filters != out_filters or strides != 1:
             skip = [nn.Conv2d(in_filters, out_filters,
@@ -54,7 +54,7 @@ class XceptionBlock(nn.Module):
                 rep.append(SeparableConv2d(in_filt, out_filt,
                                            3, stride=1, padding=1, bias=False))
                 rep.append(nn.BatchNorm2d(out_filt))
-                rep.append(nn.ELU(inplace=True))
+                rep.append(nn.LeakyReLU(inplace=True))
 
         else:
             if expand_first:
@@ -62,26 +62,26 @@ class XceptionBlock(nn.Module):
                                            3, stride=1, padding=1, bias=False))
 
                 rep.append(nn.BatchNorm2d(out_filters))
-                rep.append(nn.ELU(inplace=True))
+                rep.append(nn.LeakyReLU(inplace=True))
 
                 for _ in range(reps - 1):
                     rep.append(SeparableConv2d(out_filters, out_filters))
                     rep.append(nn.BatchNorm2d(out_filters))
-                    rep.append(nn.ELU(inplace=True))
+                    rep.append(nn.LeakyReLU(inplace=True))
 
             else:
                 for _ in range(reps - 1):
                     rep.append(SeparableConv2d(in_filters, in_filters))
                     rep.append(nn.BatchNorm2d(in_filters))
-                    rep.append(nn.ELU(inplace=True))
+                    rep.append(nn.LeakyReLU(inplace=True))
 
                 rep.append(SeparableConv2d(in_filters, out_filters,
                                            3, stride=1, padding=1, bias=False))
                 rep.append(nn.BatchNorm2d(out_filters))
-                rep.append(nn.ELU(inplace=True))
+                rep.append(nn.LeakyReLU(inplace=True))
         rep = rep[:-1]
         if start_with_relu:
-            rep = [nn.ELU(inplace=False)] + rep
+            rep = [nn.LeakyReLU(inplace=False)] + rep
 
         if strides != 1:
             rep.append(nn.MaxPool2d(3, strides, 1))

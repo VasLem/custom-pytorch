@@ -7,7 +7,7 @@ class SeparableConv2dReLU(nn.Module):
                  stride=1, use_batchnorm=True, relu_to_use="leaky", **batchnorm_params):
         super().__init__()
         if relu_to_use == 'leaky':
-            relu = nn.ELU(inplace=False)
+            relu = nn.LeakyReLU(inplace=False)
         elif relu_to_use == '6':
             relu = nn.ReLU6(inplace=False)
         elif relu_to_use == 'random':

@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-
+import numpy as np
 
 class DiceCoeff(nn.Module):
     def __init__(self, pos_weight=None, threshold=None, activation=None):
@@ -41,7 +41,9 @@ class DiceCoeff(nn.Module):
         if self.activation is not None:
             input = self.activation(input)
         iflat = input.view(input.size()[0], -1)
+        # assert np.all(iflat.cpu().data.numpy() > 0)
         tflat = target.view(input.size()[0], -1)
+        # assert np.all(tflat.cpu().data.numpy() >= 0), np.unique(tflat.cpu().data.numpy())
         if self.pos_weight is not None:
             self.pos_weight = self.pos_weight.to(input.device)
             iflat = iflat * self.pos_weight.view(1, -1)

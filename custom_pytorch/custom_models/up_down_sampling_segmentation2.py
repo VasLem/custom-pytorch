@@ -2,7 +2,6 @@ import numpy as np
 from torch import nn
 import torch
 from custom_pytorch.custom_layers.base import Model
-from custom_pytorch.custom_layers.custom_xception_with_se import SEXceptionBlock
 from custom_pytorch.custom_layers.custom_xception_block import XceptionBlock
 from random import shuffle
 
@@ -117,7 +116,7 @@ class SamplingSegmentationV3(Model):
 
     def forward(self, image):
         outputs = []
-        inputs = [self.init_block(image)]
+        encoded_inputs = [self.init_block(image)]
         assert image.size()[1] == self.n_channels, \
             f'Provided image channels({image.size(1)})'\
             f' do not match with the ones given in the model definition({self.n_channels})'
@@ -126,13 +125,13 @@ class SamplingSegmentationV3(Model):
             f'Image H and W must be divisible by {2**self.depth},'\
             f' but the following size was provided: {image.size()}'
 
-        for block in self.encoding_blocks:
-            inputs.append(block(inputs[-1]))
+        for encoding_block in self.encoding_blocks:
+            encoded_inputs.append(encoding_block(encoded_inputs[-1]))
         x = None
         outputs = []
-        for cnt, (inp, block, upsampler) in enumerate(zip(
-                inputs[::-1], self.decoding_blocks, self.upsamplers[::-1])):
-            x = block(inp, x)
+        for cnt, (encoded_inp, decoding_block, upsampler) in enumerate(zip(
+                encoded_inputs[::-1], self.decoding_blocks, self.upsamplers[::-1])):
+            x = decoding_block(encoded_inp, x)
             outputs.append(upsampler(x))
         x = torch.cat(outputs, dim=1)
         x = self.dropout(x)

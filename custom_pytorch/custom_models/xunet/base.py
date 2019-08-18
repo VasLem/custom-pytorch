@@ -1,11 +1,8 @@
 from abc import abstractmethod
-from copy import deepcopy as copy
 
 import torch
-import torch.nn.functional as F
 from custom_pytorch.custom_layers.base import Model
-from segmentation_models_pytorch.encoders import (get_encoder,
-                                                  get_preprocessing_fn)
+from segmentation_models_pytorch.encoders import get_encoder
 from torch import nn
 
 
@@ -169,17 +166,25 @@ class _XUnet(nn.Module):
         :param downsampler_block_class: the downsampler block class
         :type downsampler_block_class: _Downsampler
 
-        :param encoder_blocks_out_shapes: the encoder blocks outputs shapes, as a list of tuples in the
+        :param encoder_blocks_out_shapes: the encoder blocks outputs shapes,
+            as a list of tuples in the
             form (n_channels, height, width)
         :type encoder_blocks_out_shapes: list(tuple(3))
-        :param encoder_blocks: the encoder blocks, which are to be given in a way that sequential logic
-            can be performed. For example, if the encoder is Inception and the layers 12, 18 and 36 are
-            to be used for the encoding, then the blocks will be Inception[:12], Inception[13: 18] and
-            Inception[19: 36], for maximum efficiency. It is obvious that each block is expected
-            to be callable. If not supplied, a list of the encoded features must be supplied during forwarding.
+        :param encoder_blocks: the encoder blocks,
+            which are to be given in a way that sequential logic
+            can be performed.
+            For example, if the encoder is Inception and the layers 12, 18 and 36 are
+            to be used for the encoding, then the blocks
+             will be Inception[:12], Inception[13: 18] and
+            Inception[19: 36], for maximum efficiency.
+             It is obvious that each block is expected
+            to be callable. If not supplied, a list of the
+             encoded features must be supplied during forwarding.
         :type encoder_blocks: list
-        :param shared_decoders: whether the decoders in each decoder column are to be shared, something
-            that will greatly reduce the proposed network, but will most probably increase exponentially
+        :param shared_decoders: whether the decoders in
+             each decoder column are to be shared, something
+            that will greatly reduce the proposed network, but will most probably
+            increase exponentially
             training time and may worsen the network efficiency. Defaults to False.
         :type shared_decoders: bool
         """
@@ -197,11 +202,13 @@ class _XUnet(nn.Module):
             if not decoding_columns:
                 decoding_columns.append(
                     DecodingColumn(d + 1, decoder_block_class, downsampler_block_class,
-                                   self.encoder_blocks_in_shapes[d], self.encoder_blocks_out_shapes[d]))
+                                   self.encoder_blocks_in_shapes[d],
+                                   self.encoder_blocks_out_shapes[d]))
             else:
                 decoding_columns.append(
                     DecodingColumn(d + 1, decoder_block_class, downsampler_block_class,
-                                   self.encoder_blocks_in_shapes[d], self.encoder_blocks_out_shapes[d],
+                                   self.encoder_blocks_in_shapes[d],
+                                   self.encoder_blocks_out_shapes[d],
                                    decoding_columns[-1]))
         if self.shared_decoders:
             for column in decoding_columns[:-1]:
@@ -262,7 +269,8 @@ class XUnet(_XUnet):
         given that the `forward` method will not use activation, as the computation of loss usually
         is more stable without it.
 
-        :param encoder: the encoder to use. Can be a string, if `segmentation_models_pytorch` package
+        :param encoder: the encoder to use. Can be a string,
+         if `segmentation_models_pytorch` package
             encoder is to be provided
         :type encoder: nn.Module or str
         :param decoder_block_class: the decoder block to be used
@@ -275,7 +283,8 @@ class XUnet(_XUnet):
         :type sample_input: Tensor
         :param n_categories: the number of categories
         :type n_categories: int
-        :param encoder_features_method: the method name to use to extract features from the encoder,
+        :param encoder_features_method: the method name to use to extract
+             features from the encoder,
          if None the encoder will be just called, defaults to None
         :type encoder_features_method: str
 
