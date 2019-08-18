@@ -25,8 +25,6 @@ class Trainer:
                  samples_weights: np.ndarray = None):
         self.train_dataset = train_dataset
         self.valid_dataset = valid_dataset
-        self.train_loss_logs = {}
-        self.valid_loss_logs = {}
         self.main_logger = Logger(config, 'logs', create_dir=True)
 
         self.weights = samples_weights
@@ -59,9 +57,6 @@ class Trainer:
         logs = self.train_logs
         if valid:
             logs = self.valid_logs
-            self.valid_loss_logs = {}
-        else:
-            self.train_loss_logs = {}
         logs[step] = {'main logs': step_logs}
         self.main_logger.update(
             step=step, logs=logs[step]['main logs'], valid=valid)
