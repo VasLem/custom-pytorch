@@ -4,7 +4,7 @@ according stages
 """
 
 import sys
-
+import numpy as np
 import torch
 from torchnet.meter import AverageValueMeter
 from tqdm import tqdm as tqdm
@@ -62,6 +62,7 @@ class Epoch:
                           for metric in self.metrics}
         if _logs is not None:
             _logs.clear()
+        np_y_pred = []
         with tqdm(dataloader, desc=self.stage_name,
                   file=sys.stdout, disable=not self.verbose) as iterator:
             for item in iterator:
@@ -70,26 +71,33 @@ class Epoch:
                 x, y = x.to(self.device), y.to(self.device)
                 loss, y_pred = self.batch_update(x, y, logs=_logs)
 
-                # update loss logs
-                loss_value = loss.cpu().detach().numpy()
-                loss_meter.add(loss_value)
-                loss_logs = {self.loss.__name__: loss_meter.mean}
-                logs.update(loss_logs)
+                if self.stage_name != 'test':
+                    # update loss logs
+                    loss_value = loss.cpu().detach().numpy()
+                    loss_meter.add(loss_value)
+                    loss_logs = {self.loss.__name__: loss_meter.mean}
+                    logs.update(loss_logs)
 
-                # update metrics logs
-                for metric_fn in self.metrics:
-                    metric_value = metric_fn(y_pred, y).cpu().detach().numpy()
-                    metrics_meters[metric_fn.__name__].add(metric_value)
-                metrics_logs = {k: v.mean for k, v in metrics_meters.items()}
-                logs.update(metrics_logs)
-                try:
-                    logs.update({'LR': self.optimizer.param_groups[0]['lr']})
-                except AttributeError:
-                    pass
-                if self.verbose:
-                    s = self._format_logs(logs)
-                    iterator.set_postfix_str(s)
-
+                    # update metrics logs
+                    for metric_fn in self.metrics:
+                        metric_value = metric_fn(
+                            y_pred, y).cpu().detach().numpy()
+                        metrics_meters[metric_fn.__name__].add(metric_value)
+                    metrics_logs = {k: v.mean for k,
+                                    v in metrics_meters.items()}
+                    logs.update(metrics_logs)
+                    try:
+                        logs.update(
+                            {'LR': self.optimizer.param_groups[0]['lr']})
+                    except AttributeError:
+                        pass
+                    if self.verbose:
+                        s = self._format_logs(logs)
+                        iterator.set_postfix_str(s)
+                else:
+                    np_y_pred.append(y_pred.cpu().data.numpy())
+        if self.stage_name == 'test':
+            return np.hstack(np_y_pred)
         return logs
 
 
@@ -139,3 +147,24 @@ class ValidEpoch(Epoch):
             prediction = self.model.forward(x)
             loss = self.loss(prediction, y, logs=logs)
         return loss, prediction
+
+
+class TestEpoch(Epoch):
+
+    def __init__(self, model, loss, metrics, device='cpu', verbose=True):
+        super().__init__(
+            model=model,
+            loss=loss,
+            metrics=metrics,
+            stage_name='valid',
+            device=device,
+            verbose=verbose,
+        )
+
+    def on_epoch_start(self):
+        self.model.eval()
+
+    def batch_update(self, x, y, logs=None):
+        with torch.no_grad():
+            prediction = self.model.forward(x)
+        return None, prediction
