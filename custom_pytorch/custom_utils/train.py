@@ -16,6 +16,7 @@ from custom_pytorch.custom_logs import Logger
 class Trainer:
 
     def __init__(self, config: Config, train_dataset: Dataset, valid_dataset: Dataset,
+                 inp_index, gt_index,
                  collate_fn: callable,
                  model: torch.nn.Module,
                  optimizer: torch.optim.Optimizer,
@@ -31,23 +32,23 @@ class Trainer:
         if self.weights is None:
             self.weights = np.ones(len(train_dataset))
         self.train_indices, self.valid_indices = get_indices(
-            'train', self.train_dataset, self.weights)
+            'train', config, self.train_dataset, self.weights)
         self.train_sampler = get_sampler(
-            'train', self.train_dataset, self.weights, self.train_indices)
+            'train', config, self.train_dataset, self.weights, self.train_indices)
         self.valid_sampler = get_sampler(
-            'valid', self.valid_dataset, self.weights, self.valid_indices)
+            'valid', config, self.valid_dataset, self.weights, self.valid_indices)
         self.train_loader = get_loader(
-            'train', self.train_dataset, self.train_sampler, collate_fn=collate_fn)
+            'train', config, self.train_dataset, self.train_sampler, collate_fn=collate_fn)
         self.valid_loader = get_loader(
-            'valid', self.valid_dataset, self.valid_sampler, collate_fn=collate_fn)
+            'valid', config, self.valid_dataset, self.valid_sampler, collate_fn=collate_fn)
         self.train_epoch = TrainEpoch(model, loss_function,
                                       metric_functions, optimizer, device, verbose)
         self.valid_epoch = ValidEpoch(
             model, loss_function, metric_functions, device, verbose)
         self.train_step = lambda logs: self.train_epoch.run(
-            self.train_loader, _logs=logs)
+            self.train_loader, inp_index, gt_index, _logs=logs)
         self.valid_step = lambda logs: self.valid_epoch.run(
-            self.valid_loader, _logs=logs)
+            self.valid_loader, inp_index, gt_index, _logs=logs)
         self.step = lambda logs, valid: self.train_step(
             logs) if not valid else self.valid_step(logs)
         self.train_logs = {}

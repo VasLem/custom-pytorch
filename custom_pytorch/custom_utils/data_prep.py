@@ -57,7 +57,7 @@ def get_sampler(stage: str, config: Config, dataset: Dataset,
         if weights is None:
             return None
         return SubsetRandomSampler(indices, replacement=replacement,
-                                   p=weights[indices]/np.sum(weights[indices]))
+                                   weights=weights[indices]/np.sum(weights[indices]))
 
     def train_sampler(config: Config):
         if weights is None:
@@ -70,7 +70,7 @@ def get_sampler(stage: str, config: Config, dataset: Dataset,
         #  will raise if more samples are requested
         return SubsetRandomSampler(indices, replacement=replacement,
                                    num_samples=config.train_size,
-                                   p=weights[indices]/np.sum(weights[indices]))
+                                   weights=weights[indices]/np.sum(weights[indices]))
 
     def test_sampler():
         return None
