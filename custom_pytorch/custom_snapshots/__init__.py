@@ -25,7 +25,7 @@ class Snapshot:
 
 
 class SnapshotsHandler:
-    def __init__(self, trainer:Trainer,
+    def __init__(self, trainer: Trainer,
                  save_dir='models', create_dir=False, max_snapshots_to_keep=5):
         """The models snapshots handler
 
@@ -38,7 +38,7 @@ class SnapshotsHandler:
         :type create_dir: bool, optional
         :param max_snapshots_to_keep: the maximum snapshots to keep per id, defaults to 5
         :type max_snapshots_to_keep: int, optional
-        :raises ValueError: If create_dir is False and the provided directory does not exist
+        :raises ValueError: If create_dir is False and sthe provided directory does not exist
         """
         self.trainer = trainer
         if (create_dir or save_dir == 'logs') and not os.path.isdir(save_dir):
@@ -66,8 +66,8 @@ class SnapshotsHandler:
                             metrics={'train': train_metric, 'valid': valid_metric}),
                    os.path.join(self.models_dir, model_name) + '.pth')
         if len(self.names[id]) > self.max_snapshots_to_keep:
-            os.remove(os.path.join(os.path.join(
-                self.models_dir, self.names[id][0])))
+            os.remove(os.path.join(
+                self.models_dir, self.names[id][0]))
             self.names[id] = self.names[id][1:]
 
     def load(self, model_name):
