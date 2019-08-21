@@ -53,38 +53,41 @@ def get_sampler(stage: str, config: Config, dataset: Dataset,
     :rtype: SubsetRandomSampler|None
     """
     def valid_sampler():
-        return SubsetRandomSampler(indices, replacement=config.train_replacement,
-                                   weights=weights[indices]/np.sum(weights[indices]))
+        if stage == 'valid':
+            return SubsetRandomSampler(indices, replacement=config.train_replacement,
+                                       weights=weights[indices]/np.sum(weights[indices]))
 
     def train_sampler(config: Config):
-        def check_replacement(config, inds):
-            if not config.train_replacement:
-                if len(inds) > config.train_size:
-                    print("The requested train size is too large for the existing dataset,"
-                          "given that the samples are to be picked without replacement")
-                    print("Setting train size to ", len(inds))
-                    config.train_size = len(inds)
-        if config.train_selection != 'any':
-            if config.train_selection == 'all':
-                np.random.shuffle(indices)
-                print("Setting train size to", len(indices))
-                config.train_size = len(indices)
-                return SubsetRandomSampler(indices, replacement=False)
-            elif config.train_selection == 'hi_weight':
-                _indices = indices[weights[indices] == np.max(weights)]
-                print('Number of highest weight indices found: ', len(_indices))
-                check_replacement(config, _indices)
-                return SubsetRandomSampler(_indices, replacement=config.train_replacement,
-                                           num_samples=config.train_size,
-                                           weights=weights[_indices]/np.sum(weights[_indices]))
+        if stage == 'train':
+            def check_replacement(config, inds):
+                if not config.train_replacement:
+                    if len(inds) > config.train_size:
+                        print("The requested train size is too large for the existing dataset,"
+                              "given that the samples are to be picked without replacement")
+                        print("Setting train size to ", len(inds))
+                        config.train_size = len(inds)
+            if config.train_selection != 'any':
+                if config.train_selection == 'all':
+                    np.random.shuffle(indices)
+                    print("Setting train size to", len(indices))
+                    config.train_size = len(indices)
+                    return SubsetRandomSampler(indices, replacement=False)
+                elif config.train_selection == 'hi_weight':
+                    _indices = indices[weights[indices] == np.max(weights)]
+                    print('Number of highest weight indices found: ', len(_indices))
+                    check_replacement(config, _indices)
+                    return SubsetRandomSampler(_indices, replacement=config.train_replacement,
+                                               num_samples=config.train_size,
+                                               weights=weights[_indices]/np.sum(weights[_indices]))
 
-        check_replacement(config, indices)
-        return SubsetRandomSampler(indices, replacement=config.train_replacement,
-                                   num_samples=config.train_size,
-                                   weights=weights[indices]/np.sum(weights[indices]))
+            check_replacement(config, indices)
+            return SubsetRandomSampler(indices, replacement=config.train_replacement,
+                                       num_samples=config.train_size,
+                                       weights=weights[indices]/np.sum(weights[indices]))
 
     def test_sampler():
-        return None
+        if stage == 'test':
+            return None
     return check_stage(
         stage, train=train_sampler(config), test=test_sampler(), valid=valid_sampler()
     )
