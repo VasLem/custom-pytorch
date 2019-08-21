@@ -1,8 +1,8 @@
 import os
+import torch
+
 from custom_pytorch.custom_config import Config
 from custom_pytorch.custom_utils import get_model_name
-import torch
-from custom_pytorch.custom_utils.train import Trainer
 
 
 class Snapshot:
@@ -25,12 +25,12 @@ class Snapshot:
 
 
 class SnapshotsHandler:
-    def __init__(self, trainer: Trainer,
+    def __init__(self, trainer,
                  save_dir='models', create_dir=False, max_snapshots_to_keep=5):
         """The models snapshots handler
 
         :param trainer: the trainer
-        :type trainer: Trainer
+        :type trainer: custom_pytorch.custom_utils.train.Trainer
         :param save_dir: the saving directory, defaults to 'models'
         :type save_dir: str, optional
         :param create_dir: whether to create directory if it does not exist and
