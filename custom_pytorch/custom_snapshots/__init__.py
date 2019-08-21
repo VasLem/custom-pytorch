@@ -64,7 +64,7 @@ class SnapshotsHandler:
                             optimizer=self.trainer.optimizer.state_dict(),
                             losses={'train': train_loss, 'valid': valid_loss},
                             metrics={'train': train_metric, 'valid': valid_metric}),
-                   os.path.join(self.models_dir, model_name) + '.pth')
+                   os.path.join(self.models_dir, model_name))
         if len(self.names[id]) > self.max_snapshots_to_keep:
             os.remove(os.path.join(
                 self.models_dir, self.names[id][0]))
