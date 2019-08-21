@@ -133,7 +133,7 @@ class DecodingColumn(Model):
         return feats[-1]
 
 
-class _XUnet(nn.Module):
+class _XUnet(Model):
 
     def __init__(self, inp_shape, decoder_block_class: _DecoderBlock,
                  downsampler_block_class: _Downsampler,
@@ -324,6 +324,7 @@ class XUnet(_XUnet):
         else:
             raise ValueError(
                 'Activation should be "sigmoid"/"softmax"/callable/None')
+        self.initialize(self.decoder)
 
     def forward(self, inputs):
         enc_features = getattr(
@@ -341,6 +342,7 @@ class XUnet(_XUnet):
         return super().extract_features(input, encoded_features=enc_features)
 
     def predict(self, x):
+        raise
         if self.training:
             self.eval()
         with torch.no_grad():

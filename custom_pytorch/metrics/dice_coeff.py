@@ -1,8 +1,17 @@
+"""The implementation of Dice Coefficient
+"""
 import torch
 from torch import nn
-import numpy as np
+
 
 class DiceCoeff(nn.Module):
+    r"""Dice Coefficient, defined by the following equation
+    (p is prediction mask, g is ground truth mask, w are pixels weights):
+    .. math::
+        d = \frac{2 * \sum{p \times g \times w ^ 2} + 1}{\sum{w \times p + w \times g} + 1)}
+    p should be in the range of [0.0, 1.0]
+
+    """
     def __init__(self, pos_weight=None, threshold=None, activation=None):
         """
         :param pos_weight: Positional weights given to each element of the tensor,

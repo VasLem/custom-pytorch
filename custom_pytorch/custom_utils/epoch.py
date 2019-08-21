@@ -19,7 +19,7 @@ class Epoch:
         self.stage_name = stage_name
         self.verbose = verbose
         self.device = device
-
+        self.epoch = 0
         self._to_device()
 
     def _to_device(self):
@@ -53,7 +53,7 @@ class Epoch:
         :return: the loss and metrics logs
         :rtype: dict
         """
-
+        self.epoch += 1
         self.on_epoch_start()
 
         logs = {}
@@ -119,7 +119,7 @@ class TrainEpoch(Epoch):
 
     def batch_update(self, x, y, logs=None):
         self.optimizer.zero_grad()
-        prediction = self.model.forward(x)
+        prediction = self.model(x)
 
         loss = self.loss(prediction, y, logs=logs)
         loss.backward()
@@ -144,7 +144,7 @@ class ValidEpoch(Epoch):
 
     def batch_update(self, x, y, logs=None):
         with torch.no_grad():
-            prediction = self.model.forward(x)
+            prediction = self.model(x)
             loss = self.loss(prediction, y, logs=logs)
         return loss, prediction
 
@@ -156,7 +156,7 @@ class TestEpoch(Epoch):
             model=model,
             loss=loss,
             metrics=metrics,
-            stage_name='valid',
+            stage_name='test',
             device=device,
             verbose=verbose,
         )
@@ -166,5 +166,5 @@ class TestEpoch(Epoch):
 
     def batch_update(self, x, y, logs=None):
         with torch.no_grad():
-            prediction = self.model.forward(x)
+            prediction = self.model(x)
         return None, prediction

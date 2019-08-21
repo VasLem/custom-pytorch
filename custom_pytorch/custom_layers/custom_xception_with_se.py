@@ -3,9 +3,8 @@ from custom_pytorch.layers import SqueezeAndExcitation
 
 
 class SEXceptionBlock(XceptionBlock):
-    """Exception Block, with the Squeeze and Excitation variant. Folowing SE-PRE strategy.
-    The SE variant is applied only when the skip connection is activated, which happens if the
-    numbers of input layers and output layers differ, or when the stride is != 1.
+    """Exception Block, with the Squeeze and Excitation variant. Folowing SE-PRE strategy:
+    The SE variant is applied on the non-skipping branch, before applying the exception block.
     """
 
     def __init__(self, in_filters, out_filters, reps=1, strides=1,

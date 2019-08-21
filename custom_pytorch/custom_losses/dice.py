@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 from torch import nn
 from custom_pytorch.metrics import DiceCoeff
@@ -106,12 +107,37 @@ class BCEAndDiceLoss(nn.Module):
         if _dice_loss_class is None:
             _dice_loss_class = DiceLoss
         self.dice_loss = _dice_loss_class(
-            with_logits=with_logits, **dice_loss_kwargs)
+            with_logits=self.with_logits, **dice_loss_kwargs)
         self.bce_loss = BCELoss(with_logits=self.with_logits, **bce_kwargs)
 
     def forward(self, inputs, targets, logs=None, dice_loss_kwargs={}, bce_kwargs={}):
-        return self.dice_loss(inputs, targets, logs=logs, **dice_loss_kwargs) + \
-            self.bce_loss(inputs, targets, logs=logs, **bce_kwargs)
+        d_loss = self.dice_loss(inputs, targets, logs=logs, **dice_loss_kwargs)
+        b_loss = self.bce_loss(inputs, targets, logs=logs, **bce_kwargs)
+        if np.any(b_loss.cpu().data.numpy() > 1.5):
+            b_loss = BCELoss(with_logits=False,
+                             **bce_kwargs)(nn.Sigmoid()(inputs), targets)
+        loss = b_loss + d_loss
+
+        if not np.all(loss.cpu().data.numpy() < 1e4):
+            print(self.bce_loss)
+            import pickle
+            with open('error_tensors.pkl', 'wb') as out:
+                pickle.dump((inputs.cpu().detach(),
+                             targets.cpu().detach(),
+                             (b_loss.cpu().detach(),
+                              BCELoss(with_logits=False,
+                                      **bce_kwargs)(nn.Sigmoid()(inputs), targets).cpu().detach()
+                              )), out)
+
+        assert np.all(loss.cpu().data.numpy() < 1e4), (d_loss, BCELoss(
+            with_logits=True, **bce_kwargs)(
+            inputs, targets),
+            BCELoss(
+            with_logits=False, **bce_kwargs)(
+            nn.Sigmoid()(inputs), targets),
+            inputs.max(), inputs.min(), inputs.mean(),
+            targets.max(), targets.min(), targets.mean())
+        return loss
 
 
 class BCEAndCEDiceLoss(BCEAndDiceLoss):
@@ -138,8 +164,10 @@ class _Windowed(nn.Module):
         kernel = self.kernel.to(input.device)
         if self.with_logits:
             input = self.activation(input)
-        input = nobackprop_conv2d(input, kernel)
-        target = nobackprop_conv2d(target, kernel)
+        if self.red_kernel_size != 1:
+            conv_input = nobackprop_conv2d(input, kernel)
+            target = nobackprop_conv2d(target, kernel)
+            input = input + (conv_input - input) * (target > 0).float()
         return self.loss_class(input, target, *args, logs=logs, **kwargs)
 
 
@@ -171,10 +199,10 @@ class WindowedBCELoss(_Windowed):
     __name__ = 'windowed_bce_loss'
 
     def __init__(self, with_logits=True, red_kernel_size=3, pos_weight=None, threshold=None):
-        loss_class = BCELoss(with_logits=with_logits,
+        loss_class = BCELoss(with_logits=False,
                              pos_weight=pos_weight, threshold=threshold)
         loss_class.__name__ = f'bce_loss, window: {red_kernel_size}'
-        super().__init__(loss_class=loss_class,
+        super().__init__(loss_class=loss_class, with_logits=with_logits,
                          red_kernel_size=red_kernel_size)
 
 
@@ -241,5 +269,5 @@ class BCEAndMultiWindowedDiceLoss(BCEAndDiceLoss):
     __name__ = 'bce_and_multiwindowed_dice_loss'
 
     def __init__(self, with_logits=True, dice_loss_kwargs={}, bce_kwargs={}):
-        super().__init__(with_logits, dice_loss_kwargs,
-                         bce_kwargs, _dice_loss_class=MultiWindowedDiceLoss)
+        super().__init__(with_logits=with_logits, dice_loss_kwargs=dice_loss_kwargs,
+                         bce_kwargs=bce_kwargs, _dice_loss_class=MultiWindowedDiceLoss)

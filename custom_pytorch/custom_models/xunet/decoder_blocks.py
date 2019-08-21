@@ -30,7 +30,6 @@ class UnetDecoderBlock(_DecoderBlock):
             Conv2dReLU(inp_channels, out_channels, kernel_size=3, padding=1, use_batchnorm=use_batchnorm),
             Conv2dReLU(out_channels, out_channels, kernel_size=3, padding=1, use_batchnorm=use_batchnorm),
         )
-        self.initialize()
 
 
     def forward(self, x):
@@ -44,18 +43,11 @@ class UnetDecoderBlock(_DecoderBlock):
 class SEXceptionDecoderBlock(_DecoderBlock):
     def __init__(self, in_channels, out_channels, scale_ratio, *args, **kwargs):
         super().__init__(in_channels, out_channels, scale_ratio)
-        self.conv = SeparableConv2dReLU(in_channels, in_channels, 3, padding=1)
         self.reps = compute_needed_layers(in_channels, out_channels)
-        # self.block = nn.Sequential(
-        #     SeparableConv2dReLU(in_channels, out_channels, kernel_size=3, padding=1, use_batchnorm=True),
-        #     # SeparableConv2dReLU(out_channels, out_channels, kernel_size=3, padding=1, use_batchnorm=True),
-        # )
         self.block = SEXceptionBlock(in_channels, out_channels,
                                      self.reps)
-        self.initialize()
 
     def forward(self, x):
-        x = self.conv(x)
         x = F.interpolate(x, scale_factor=self.scale_ratio, mode='nearest')
         x = self.block(x)
         return x
