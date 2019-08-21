@@ -2,6 +2,7 @@ import os
 from custom_pytorch.custom_config import Config
 from custom_pytorch.custom_utils import get_model_name
 import torch
+from custom_pytorch.custom_utils.train import Trainer
 
 
 class Snapshot:
@@ -24,7 +25,21 @@ class Snapshot:
 
 
 class SnapshotsHandler:
-    def __init__(self, trainer, save_dir='models', create_dir=False):
+    def __init__(self, trainer:Trainer,
+                 save_dir='models', create_dir=False, max_snapshots_to_keep=5):
+        """The models snapshots handler
+
+        :param trainer: the trainer
+        :type trainer: Trainer
+        :param save_dir: the saving directory, defaults to 'models'
+        :type save_dir: str, optional
+        :param create_dir: whether to create directory if it does not exist and
+            is not the default one, defaults to False
+        :type create_dir: bool, optional
+        :param max_snapshots_to_keep: the maximum snapshots to keep per id, defaults to 5
+        :type max_snapshots_to_keep: int, optional
+        :raises ValueError: If create_dir is False and the provided directory does not exist
+        """
         self.trainer = trainer
         if (create_dir or save_dir == 'logs') and not os.path.isdir(save_dir):
             print(f"Creating snapshots directory: {save_dir}")
@@ -33,18 +48,27 @@ class SnapshotsHandler:
             raise ValueError(
                 f"Provided directory \"{save_dir}\" is not an existing directory")
         self.models_dir = save_dir
+        self.max_snapshots_to_keep = max_snapshots_to_keep
+        self.names = {}
 
     def save(self, epoch, train_loss, valid_loss, train_metric, valid_metric,
              id: str):
         model_name = get_model_name(
             self.trainer.config, epoch, train_loss, valid_loss, train_metric, valid_metric)
-        model_name += id
+        model_name += id + '.pth'
+        if id not in self.names:
+            self.names[id] = []
+        self.names[id].append(model_name)
         torch.save(Snapshot(config=self.trainer.config, epoch=epoch,
                             model=self.trainer.model.state_dict(),
                             optimizer=self.trainer.optimizer.state_dict(),
                             losses={'train': train_loss, 'valid': valid_loss},
                             metrics={'train': train_metric, 'valid': valid_metric}),
                    os.path.join(self.models_dir, model_name) + '.pth')
+        if len(self.names[id]) > self.max_snapshots_to_keep:
+            os.remove(os.path.join(os.path.join(
+                self.models_dir, self.names[id][0])))
+            self.names[id] = self.names[id][1:]
 
     def load(self, model_name):
         if not model_name.endswith('.pth'):

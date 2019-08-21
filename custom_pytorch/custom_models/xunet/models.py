@@ -25,7 +25,7 @@ class SEXceptionXUnet(XUnet):
         :type reversed_features: bool, optional
         """
 
-        super().__init__(encoder=encoder,  decoder_block_class=SEXceptionDecoderBlock,
+        super().__init__(encoder=encoder, decoder_block_class=SEXceptionDecoderBlock,
                          downsampler_block_class=SEXceptionDownsamplerBlock,
                          output_block_class=SEXceptionOutputBlock, sample_input=sample_input,
                          n_categories=n_categories, encoder_features_method=encoder_features_method,

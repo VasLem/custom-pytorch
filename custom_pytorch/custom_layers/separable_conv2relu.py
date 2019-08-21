@@ -15,14 +15,12 @@ class SeparableConv2dReLU(nn.Module):
         else:
             relu = nn.ReLU(inplace=False)
 
-        layers = [
-            SeparableConv2d(in_channels, out_channels, kernel_size,
-                            stride=stride, padding=padding, bias=not (use_batchnorm)),
-            relu,
-        ]
+        layers = [SeparableConv2d(in_channels, out_channels, kernel_size,
+                  stride=stride, padding=padding, bias=not (use_batchnorm))]
 
         if use_batchnorm:
-            layers.insert(1, nn.BatchNorm2d(out_channels, **batchnorm_params))
+            layers.append(nn.BatchNorm2d(out_channels, **batchnorm_params))
+        layers.append(relu)
 
         self.block = nn.Sequential(*layers)
 
