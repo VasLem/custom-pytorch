@@ -70,6 +70,7 @@ class Trainer:
 
     def load_model(self, model_name):
         self.snasphots_handler.load(model_name)
+        self.config.warm_start = model_name
         return self.model
 
     def save_last_model(self, train_loss, valid_loss, train_metric, valid_metric):
