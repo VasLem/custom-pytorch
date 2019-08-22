@@ -2,7 +2,7 @@ import numpy as np
 from torch import nn
 import torch
 from custom_pytorch.custom_layers.base import Model
-from custom_pytorch.custom_layers.custom_xception_block import XceptionBlock
+from custom_pytorch.custom_layers import XceptionBlock
 from random import shuffle
 
 

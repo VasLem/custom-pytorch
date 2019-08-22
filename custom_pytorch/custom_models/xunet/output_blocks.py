@@ -6,6 +6,19 @@ import math
 from custom_pytorch.custom_utils.compute_layers import compute_needed_layers
 from custom_pytorch.custom_layers.separable_conv2relu import SeparableConv2dReLU
 
+class XceptionOutputBlock(_OutputBlock):
+    def __init__(self, in_channels, out_channels):
+        super().__init__(in_channels, out_channels)
+        self.block = nn.Sequential(
+            SeparableConv2dReLU(in_channels, in_channels, 1),
+            nn.Dropout2d(0.2),
+            SeparableConv2dReLU(in_channels, out_channels, 3, padding=1),
+            nn.Conv2d(out_channels, out_channels, 3, padding=1))
+        self.initialize()
+
+    def forward(self, x):
+        return self.block(x)
+
 
 class SEXceptionOutputBlock(_OutputBlock):
     def __init__(self, in_channels, out_channels):

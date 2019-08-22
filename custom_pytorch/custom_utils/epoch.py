@@ -39,7 +39,8 @@ class Epoch:
     def on_epoch_start(self):
         pass
 
-    def run(self, dataloader, inp_index, gt_index, _logs=None):
+    def run(self, dataloader, inp_index, gt_index, _logs=None, _tta=False,
+            _tta_strategy='mean', _tta_inv_transforms=None):
         """
         :param dataloader: the pytorch dataloader
         :type dataloader: torch.utils.data.DataLoader
@@ -50,6 +51,18 @@ class Epoch:
         :param _logs: if provided, a dictionary where logs are accumulated,
         cleared before iteration, defaults to None
         :type _logs: dict|None
+        :param _tta: if provided, it will be assumed that the input samples per batch are of
+            (T, C, H, W) size, where T is the number of the test time augmentation samples.
+            defaults to False.
+        :type _tta: bool
+        :param _tta_strategy: the strategy to follow for the predictions joining,
+            available choices are:
+                - mean
+                - max
+            Defaults to mean.
+        :type _tta_strategy: str
+        :param _tta_inv_transforms: the inverse tranforms to apply to predictions
+        :type _tta_inv_transforms: callable
         :return: the loss and metrics logs
         :rtype: dict
         """
@@ -69,7 +82,25 @@ class Epoch:
                 x = item[inp_index]
                 y = item[gt_index]
                 x, y = x.to(self.device), y.to(self.device)
-                loss, y_pred = self.batch_update(x, y, logs=_logs)
+                if _tta:
+                    losses = []
+                    preds = []
+                    for cnt, (x_, y_) in enumerate(zip(x, y)):
+                        _loss, _pred = self.batch_update(x_, y_, logs=_logs)
+                        losses.append(_loss)
+                        if _tta_inv_transforms is not None:
+                            _pred = _tta_inv_transforms[cnt](_pred)
+                        preds.append(_pred)
+                    loss = torch.mean(torch.stack(losses), dim=0)
+                    if _tta_strategy == 'mean':
+                        y_pred = torch.mean(torch.stack(preds), dim=0)
+                    elif _tta_strategy == 'max':
+                        y_pred = torch.max(torch.stack(preds), dim=0)
+                    else:
+                        raise ValueError(f"Provided TTA strategy ({_tta_strategy})"
+                                         " was not understood, `mean` or `max` currently handled")
+                else:
+                    loss, y_pred = self.batch_update(x, y, logs=_logs)
 
                 if self.stage_name != 'test':
                     # update loss logs

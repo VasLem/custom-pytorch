@@ -1,21 +1,6 @@
 import numpy as np
 from torch import nn
-
-
-class SeparableConv2d(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size=1, stride=1,
-                 padding=0, dilation=1, bias=False):
-        super().__init__()
-
-        self.conv1 = nn.Conv2d(in_channels, in_channels, kernel_size,
-                               stride, padding, dilation, groups=in_channels, bias=bias)
-        self.pointwise = nn.Conv2d(
-            in_channels, out_channels, 1, 1, 0, 1, 1, bias=bias)
-
-    def forward(self, x):
-        x = self.conv1(x)
-        x = self.pointwise(x)
-        return x
+from custom_pytorch.custom_layers.separable_conv2relu import SeparableConv2dReLU
 
 
 class XceptionBlock(nn.Module):
@@ -30,10 +15,8 @@ class XceptionBlock(nn.Module):
             self.ending_relu = nn.LeakyReLU(inplace=False)
         self.skip = None
         if in_filters != out_filters or strides != 1:
-            skip = [nn.Conv2d(in_filters, out_filters,
-                              1, stride=strides, bias=False)]
-            skip.append(nn.BatchNorm2d(out_filters))
-            self.skip = nn.Sequential(*skip)
+            self.skip = SeparableConv2dReLU(in_filters, out_filters,
+                                            3, stride=1, padding=1)
 
         rep = []
         self.in_filters = in_filters
@@ -51,35 +34,24 @@ class XceptionBlock(nn.Module):
             # print(in_filters, out_filters, reps, filters_hierarchy)
 
             for in_filt, out_filt in zip(in_filters_group, out_filters_group):
-                rep.append(SeparableConv2d(in_filt, out_filt,
-                                           3, stride=1, padding=1, bias=False))
-                rep.append(nn.BatchNorm2d(out_filt))
-                rep.append(nn.LeakyReLU(inplace=True))
+                rep.append(SeparableConv2dReLU(in_filt, out_filt,
+                                               3, stride=1, padding=1))
 
         else:
             if expand_first:
-                rep.append(SeparableConv2d(in_filters, out_filters,
-                                           3, stride=1, padding=1, bias=False))
-
-                rep.append(nn.BatchNorm2d(out_filters))
-                rep.append(nn.LeakyReLU(inplace=True))
+                rep.append(SeparableConv2dReLU(in_filters, out_filters,
+                                               3, stride=1, padding=1))
 
                 for _ in range(reps - 1):
-                    rep.append(SeparableConv2d(out_filters, out_filters))
-                    rep.append(nn.BatchNorm2d(out_filters))
-                    rep.append(nn.LeakyReLU(inplace=True))
+                    rep.append(SeparableConv2dReLU(out_filters, out_filters))
 
             else:
                 for _ in range(reps - 1):
-                    rep.append(SeparableConv2d(in_filters, in_filters))
-                    rep.append(nn.BatchNorm2d(in_filters))
-                    rep.append(nn.LeakyReLU(inplace=True))
+                    rep.append(SeparableConv2dReLU(in_filters, in_filters))
 
-                rep.append(SeparableConv2d(in_filters, out_filters,
-                                           3, stride=1, padding=1, bias=False))
-                rep.append(nn.BatchNorm2d(out_filters))
-                rep.append(nn.LeakyReLU(inplace=True))
-        rep = rep[:-1]
+                rep.append(SeparableConv2dReLU(in_filters, out_filters,
+                                               3, stride=1, padding=1))
+
         if start_with_relu:
             rep = [nn.LeakyReLU(inplace=False)] + rep
 

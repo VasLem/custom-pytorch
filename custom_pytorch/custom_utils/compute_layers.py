@@ -25,5 +25,7 @@ def compute_needed_layers(inp_channels, out_channels):
 
     """
     if inp_channels > out_channels:
-        return ceil(log2(inp_channels) / log2(out_channels + 1))
-    return ceil(log2(out_channels) / log2(inp_channels + 1))
+        ret = ceil(log2(inp_channels) / log2(out_channels + 1))
+    else:
+        ret = ceil(log2(out_channels) / log2(inp_channels + 1))
+    return ret

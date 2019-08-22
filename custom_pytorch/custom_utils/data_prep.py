@@ -1,5 +1,6 @@
 """Helper functions. Their usage can be seen inside custom_utils.train.Trainer class
 """
+from abc import abstractclassmethod
 import numpy as np
 import torch
 from numpy.random import choice
@@ -29,6 +30,7 @@ def get_indices(stage: str, config: Config, dataset: Dataset, weights: np.ndarra
         valid_indices = choice(
             len(dataset), size=config.valid_size,
             replace=False, p=weights/np.sum(weights))
+        config.valid_indices = valid_indices
         train_indices = np.setdiff1d(range(len(dataset)), valid_indices)
         return train_indices, valid_indices
     else:
@@ -91,6 +93,52 @@ def get_sampler(stage: str, config: Config, dataset: Dataset,
     return check_stage(
         stage, train=train_sampler(config), test=test_sampler(), valid=valid_sampler()
     )
+
+
+
+def get_tta_collate_fn(stage, config: Config, collate_fn: callable = None):
+    """Transform given collate function to one compatible with TTA, that will practically
+    retrieve a 4D (T, C, H, W) tensor per batch item, with T being the TTA number. It is
+    only active when testing.
+
+    :param stage: the stage
+    :type stage: str
+    :param config: the configuration
+    :type config: Config
+    :param collate_fn: the collate function, defaults to None
+    :type collate_fn: callable, optional
+    :return: the transformed collate function
+    :rtype: callable
+    """
+    def test_tta_collate_fn(batch):
+        if config.apply_tta:
+            ret = []
+            for tta_group in batch:
+                ret_item = None
+                for item in tta_group:
+                    if isinstance(item, dict):
+                        if ret_item is None:
+                            ret_item = {key: [] for key in item}
+                        for key in item:
+                            ret_item[key].append(item[key])
+                    else:
+                        if ret_item is None:
+                            ret_item = [[] for val in item]
+                        for cnt, val in enumerate(item):
+                            ret_item[cnt].append(val)
+                if isinstance(ret_item, dict):
+                    for key in ret_item:
+                        ret_item[key] = torch.stack(ret_item[key])
+                else:
+                    ret_item = [torch.stack(item) for item in ret_item]
+
+                ret.append(ret_item)
+            batch = ret
+        if collate_fn is not None:
+            batch = collate_fn(batch)
+        return batch
+
+    return check_stage(stage, train=None, valid=None, test=test_tta_collate_fn)
 
 
 def get_loader(stage, config, dataset, sampler, collate_fn=None):

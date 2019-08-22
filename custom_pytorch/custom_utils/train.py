@@ -29,6 +29,8 @@ class Trainer:
         self.valid_dataset = valid_dataset
         self.main_logger = Logger(config, 'logs', create_dir=True)
         self.config = config
+        self.config.input_index = inp_index
+        self.config.gt_index = gt_index
         config.metrics_names = [f.__name__ for f in metric_functions]
         config.loss_name = loss_function.__name__
         self.weights = samples_weights
@@ -50,8 +52,9 @@ class Trainer:
             model, loss_function, metric_functions, device, verbose)
         self.train_step = lambda logs: self.train_epoch.run(
             self.train_loader, inp_index, gt_index, _logs=logs)
-        self.valid_step = lambda logs: self.valid_epoch.run(
-            self.valid_loader, inp_index, gt_index, _logs=logs)
+        self.valid_step = lambda logs, _tta=False, _tta_strategy='mean', _tta_inv_transform=None: self.valid_epoch.run(
+            self.valid_loader, inp_index, gt_index, _logs=logs, _tta=_tta,
+            _tta_strategy=_tta_strategy, _tta_inv_transform=_tta_inv_transform)
         self.step = lambda logs, valid: self.train_step(
             logs) if not valid else self.valid_step(logs)
         self.snasphots_handler = SnapshotsHandler(

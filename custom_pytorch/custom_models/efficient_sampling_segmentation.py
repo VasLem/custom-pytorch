@@ -1,8 +1,7 @@
 import numpy as np
 from torch import nn
 import torch
-import torch.nn.functional as F
-from custom_pytorch.custom_layers.custom_xception_block import XceptionBlock, SeparableConv2d
+from custom_pytorch.custom_layers import XceptionBlock
 
 
 class DownSamplingBlock(nn.Module):
@@ -37,15 +36,13 @@ class UpSamplingBlock(nn.Module):
                     inp_channels, self.out_channels, **opts_stride)
             else:
                 self.upsampler = nn.Sequential([nn.UpsamplingNearest2d(scale_factor=scale_factor),
-                    XceptionBlock(self.inp_channels, self.out_channels,
-                                                reps=reps)])
+                                                XceptionBlock(self.inp_channels, self.out_channels,
+                                                              reps=reps)])
         elif scale_factor == 1:
             self.upsampler = XceptionBlock(self.inp_channels, self.out_channels,
-                                                reps=reps)
-
+                                           reps=reps)
 
         assert self.out_channels > 0
-
 
     def forward(self, inputs):
         if isinstance(inputs, tuple) or isinstance(inputs, list):
@@ -59,7 +56,8 @@ class UpSamplingColumn(nn.Module):
         assert inp_layers // 4 ** depth >= 1
         self.inp_layers = inp_layers
         self.depth = depth
-        self.column = nn.ModuleList([UpSamplingBlock(inp_layers // 4 ** d) for d in range(depth)])
+        self.column = nn.ModuleList(
+            [UpSamplingBlock(inp_layers // 4 ** d) for d in range(depth)])
         self.layer = nn.Sequential(self.column)
 
     def forward(self, inputs):
@@ -78,17 +76,13 @@ class ColumnsDiagonalJoiner:
                 [column.column[cnt].out_channels for cnt, column
                  in enumerate(columns[self.depth:])])
         else:
-            self.out_layers = columns[self.depth - 1].inp_layers+ sum(
-                    [column.column[cnt].out_channels for cnt, column
-                    in enumerate(columns[self.depth:])])
-
+            self.out_layers = columns[self.depth - 1].inp_layers + sum(
+                [column.column[cnt].out_channels for cnt, column
+                 in enumerate(columns[self.depth:])])
 
     def __call__(self, inputs, columns_outputs):
         total = [[inputs]] + columns_outputs
         return torch.cat([el[cnt] for cnt, el in enumerate(total[self.depth:])], dim=1)
-
-
-
 
 
 class SamplingSegmentationV4(nn.Module):
@@ -105,7 +99,7 @@ class SamplingSegmentationV4(nn.Module):
         self.down_sampling_blocks = nn.ModuleList([DownSamplingBlock(n_channels * 4 ** d)
                                                    for d in range(self.depth)])
         self.upsamplers = nn.ModuleList([UpSamplingBlock(joiner.out_layers, False,
-            scale_factor=2 ** cnt) for cnt, joiner in enumerate(self.diagonal_joiners)])
+                                                         scale_factor=2 ** cnt) for cnt, joiner in enumerate(self.diagonal_joiners)])
         self.dropout = nn.Dropout2d()
         self.features_layers = sum(
             [block.out_layers for block in self.diagonal_joiners])
@@ -129,15 +123,18 @@ class SamplingSegmentationV4(nn.Module):
             x = downsampled[-1]
         for column, sample in zip(self.up_sampling_columns, downsampled):
             column(sample)
-        columns_outputs = [column.outputs for column in self.up_sampling_columns]
+        columns_outputs = [
+            column.outputs for column in self.up_sampling_columns]
         joined = []
         for joiner in self.diagonal_joiners:
             joined.append(joiner(image, columns_outputs))
         self.sampled_features = []
         for stack, upsampler in zip(joined, self.upsamplers):
             self.sampled_features.append(upsampler(stack))
-        out = self.final_layer(self.dropout(torch.cat(self.sampled_features, dim=1)))
+        out = self.final_layer(self.dropout(
+            torch.cat(self.sampled_features, dim=1)))
         return out
+
 
 if __name__ == '__main__':
     depth = 3
@@ -145,7 +142,8 @@ if __name__ == '__main__':
     from numpy.random import random
     import time
     import os
-    dummy_inp = torch.from_numpy(random((1, 3, 4 ** depth, 4 ** depth))).float()
+    dummy_inp = torch.from_numpy(
+        random((1, 3, 4 ** depth, 4 ** depth))).float()
     t0 = time.time()
     net(dummy_inp)
     print('Time for execution:', time.time() - t0)
