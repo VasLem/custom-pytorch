@@ -24,9 +24,10 @@ class Epoch:
 
     def _to_device(self):
         self.model.to(self.device)
-        self.loss.to(self.device)
-        for metric in self.metrics:
-            metric.to(self.device)
+        if self.stage_name != 'test':
+            self.loss.to(self.device)
+            for metric in self.metrics:
+                metric.to(self.device)
 
     def _format_logs(self, logs):
         str_logs = ['{} - {:.4}'.format(k, v) for k, v in logs.items()]
@@ -70,12 +71,14 @@ class Epoch:
         self.on_epoch_start()
 
         logs = {}
-        loss_meter = AverageValueMeter()
-        metrics_meters = {metric.__name__: AverageValueMeter()
-                          for metric in self.metrics}
+        if self.stage_name != 'test':
+            loss_meter = AverageValueMeter()
+            metrics_meters = {metric.__name__: AverageValueMeter()
+                              for metric in self.metrics}
         if _logs is not None:
             _logs.clear()
         np_y_pred = []
+
         with tqdm(dataloader, desc=self.stage_name,
                   file=sys.stdout, disable=not self.verbose) as iterator:
             for item in iterator:
@@ -127,8 +130,10 @@ class Epoch:
                         iterator.set_postfix_str(s)
                 else:
                     np_y_pred.append(y_pred.cpu().data.numpy())
+
         if self.stage_name == 'test':
-            return np.hstack(np_y_pred)
+            return np.concatenate(np_y_pred, axis=0)
+
         return logs
 
 

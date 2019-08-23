@@ -52,9 +52,10 @@ class Trainer:
             model, loss_function, metric_functions, device, verbose)
         self.train_step = lambda logs: self.train_epoch.run(
             self.train_loader, inp_index, gt_index, _logs=logs)
-        self.valid_step = lambda logs, _tta=False, _tta_strategy='mean', _tta_inv_transform=None: self.valid_epoch.run(
-            self.valid_loader, inp_index, gt_index, _logs=logs, _tta=_tta,
-            _tta_strategy=_tta_strategy, _tta_inv_transform=_tta_inv_transform)
+        self.valid_step = lambda logs, _tta=False, _tta_strategy='mean',\
+            _tta_inv_transforms=None: self.valid_epoch.run(
+                self.valid_loader, inp_index, gt_index, _logs=logs, _tta=_tta,
+                _tta_strategy=_tta_strategy, _tta_inv_transforms=_tta_inv_transforms)
         self.step = lambda logs, valid: self.train_step(
             logs) if not valid else self.valid_step(logs)
         self.snasphots_handler = SnapshotsHandler(

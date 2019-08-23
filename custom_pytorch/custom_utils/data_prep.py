@@ -95,7 +95,6 @@ def get_sampler(stage: str, config: Config, dataset: Dataset,
     )
 
 
-
 def get_tta_collate_fn(stage, config: Config, collate_fn: callable = None):
     """Transform given collate function to one compatible with TTA, that will practically
     retrieve a 4D (T, C, H, W) tensor per batch item, with T being the TTA number. It is

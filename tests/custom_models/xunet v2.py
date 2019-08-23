@@ -1,4 +1,4 @@
-from custom_pytorch.custom_models import SimpleXUnet
+from custom_pytorch.custom_models import SimpleXUnetV2, SimpleXUnet
 from custom_pytorch.custom_config import Config
 from torch import nn
 import torch
@@ -7,7 +7,7 @@ from torch.optim import SGD
 from torchvision.datasets import VOCSegmentation
 from segmentation_models_pytorch.encoders import get_preprocessing_fn, get_encoder
 import segmentation_models_pytorch as smp
-
+from custom_pytorch.custom_utils.calc_number import params_number, submodules_number
 from custom_pytorch.custom_visualizations.segmentation import Visualizer
 from custom_pytorch.external.pytorch_enet.metric.iou import IoU as _IoU
 import torch.nn.functional as F
@@ -22,7 +22,7 @@ class IoU(nn.Module):
         self.calculator.add(preds, gts)
         return self.calculator.value()[1]
 
-
+from efficientunet import *
 
 
 
@@ -32,12 +32,18 @@ def main():
     from PIL import Image
     import cv2
     from torch import Tensor
+    from custom_pytorch.models.efficient_net_encoder import EfficientNetEncoder
 
-    encoder = 'resnet18'
+
+
+
+    # encoder = EfficientNetEncoder('efficientnet-b3', pretrained=True).to(DEVICE)
+    # encoder = 'resnet18'
+    encoder = 'se_resnext50_32x4d'
     def transform_func(img):
         img = np.array(img)
         img = get_preprocessing_fn(encoder)(img)
-        img = cv2.resize(img, (512, 512), interpolation=cv2.INTER_LINEAR)
+        img = cv2.resize(img, (256, 256), interpolation=cv2.INTER_LINEAR)
         img = np.transpose(img,(2,0,1))
         img = torch.from_numpy(img).float()
 
@@ -46,7 +52,7 @@ def main():
     def target_transform_func(img):
         img = np.array(img)
         img[img == 255] = 0 # removing borders
-        img = cv2.resize(img, (512, 512), interpolation=cv2.INTER_NEAREST)
+        img = cv2.resize(img, (256, 256), interpolation=cv2.INTER_NEAREST)
         img = torch.from_numpy(img).long()
         return img
 
@@ -56,7 +62,7 @@ def main():
     valid_dataset = VOCSegmentation('/media/vaslem/Data/kaggle/input', image_set='val',
                                     transform=transform_func, target_transform=target_transform_func)
 
-    model_to_use = 'SimpleXUnet'
+    model_to_use = 'SimpleXUnetV2'
     # model_to_use = 'Unet'
     CONFIG = Config(train_size=len(train_dataset), valid_size=100, batch_size=3,
                    random_seed=42, lr=1e-2, identifier=model_to_use)
@@ -71,9 +77,14 @@ def main():
     if model_to_use == 'SimpleXUnet':
 
         model = SimpleXUnet(encoder, train_dataset[0][0].unsqueeze(dim=0), 21).to(device)
+    elif model_to_use == 'SimpleXUnetV2':
+
+        model = SimpleXUnetV2(encoder, train_dataset[0][0].unsqueeze(dim=0), 21).to(device)
 
     elif model_to_use == 'Unet':
         model = smp.Unet(encoder, classes=21).to(device)
+    print("Model parameters number:", params_number(model))
+    print("Model modules number:", submodules_number(model))
     for param in model.encoder.parameters():
             param.requires_grad = False
     # model_parameters = filter(lambda p: p.requires_grad, model.parameters())

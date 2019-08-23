@@ -73,7 +73,8 @@ class SnapshotsHandler:
     def load(self, model_name):
         if not model_name.endswith('.pth'):
             model_name += '.pth'
-        snapshot = torch.load(os.path.join(self.models_dir, model_name))
+        snapshot = torch.load(os.path.join(self.models_dir, model_name),
+                              map_location=next(self.trainer.model.parameters()).device)
         if self.trainer.config != snapshot.config:
             import pandas as pd
             attributes = sorted(list(set(
@@ -95,7 +96,15 @@ class SnapshotsHandler:
                     bad_attrs[attr] = {
                         'loaded': '-', 'current': getattr(self.trainer.config, attr)}
                     continue
-                if getattr(self.trainer.config, attr) != getattr(snapshot.config, attr):
+                compare = True
+                try:
+                    if getattr(self.trainer.config, attr) != getattr(snapshot.config, attr):
+                        compare = False
+                except ValueError:
+                    import numpy as np
+                    if np.all(getattr(self.trainer.config, attr) != getattr(snapshot.config, attr)):
+                        compare = False
+                if not compare:
                     bad_attrs[attr] = {'loaded': getattr(snapshot.config, attr),
                                        'current': getattr(self.trainer.config, attr)}
             print(
@@ -104,5 +113,8 @@ class SnapshotsHandler:
             display(pd.DataFrame.from_dict(bad_attrs, orient='index'))
 
         self.trainer.epoch = snapshot.epoch + 1
-        self.trainer.optimizer.load_state_dict(snapshot.optimizer)
+        try:
+            self.trainer.optimizer.load_state_dict(snapshot.optimizer)
+        except AttributeError:
+            pass
         self.trainer.model.load_state_dict(snapshot.model)

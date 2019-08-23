@@ -4,6 +4,7 @@ from .decoder_blocks import SEXceptionDecoderBlock, XceptionDecoderBlock, Simple
 from .downsampler_blocks import SEXceptionDownsamplerBlock, XceptionDownsamplerBlock, SimpleDownsamplerBlock
 from .output_blocks import SEXceptionOutputBlock, XceptionOutputBlock, SimpleOutputBlock
 
+
 class SimpleXUnet(XUnet):
     def __init__(self, encoder, sample_input, n_categories, encoder_features_method=None,
                  shared_decoders=False, reversed_features=True, activation='sigmoid'):
@@ -30,6 +31,7 @@ class SimpleXUnet(XUnet):
                          n_categories=n_categories, encoder_features_method=encoder_features_method,
                          shared_decoders=shared_decoders, reversed_features=reversed_features,
                          activation=activation)
+
 
 class SEXceptionXUnet(XUnet):
     def __init__(self, encoder, sample_input, n_categories, encoder_features_method=None,
