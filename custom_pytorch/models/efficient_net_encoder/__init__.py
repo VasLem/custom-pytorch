@@ -1,8 +1,8 @@
 from torch import nn
 import torch
-from efficientunet import EfficientNet
 from efficientunet.efficientnet import _get_model_by_name
 from collections import OrderedDict
+
 
 class Swish(nn.Module):
     def __init__(self, name=None):
@@ -51,14 +51,16 @@ class Encoder(nn.Module):
         x = self.head_swish(x)
         return x
 
+
 class EfficientNetEncoder(nn.Module):
-    def __init__(self, model_name='efficient-b1', pretrained=True):
+    def __init__(self, model_name='efficientnet-b1', pretrained=True):
         assert model_name.startswith('efficientnet-b')
         super().__init__()
         model = _get_model_by_name(model_name, pretrained=pretrained)
         self.encoder = Encoder(model_name, model, pretrained=pretrained)
+        self.name = model_name
 
     def forward(self, x):
         self.encoder(x.to(next(self.encoder.parameters()).device))
-        ret = list(self.encoder.features)
+        ret = self.encoder.features
         return ret
