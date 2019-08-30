@@ -2,7 +2,7 @@
 accordingly to make it more generic. TrainEpoch and ValidEpoch are classes to be used in the
 according stages
 """
-
+from time import time
 import sys
 import numpy as np
 import torch
@@ -40,6 +40,12 @@ class Epoch:
     def on_epoch_start(self):
         pass
 
+    def update_times(self, times_meters, times):
+        for t in times:
+            if t not in times_meters:
+                times_meters[t] = AverageValueMeter()
+            times_meters[t].add(times[t])
+
     def run(self, dataloader, inp_index, gt_index, _logs=None, _tta=False,
             _tta_strategy='mean', _tta_inv_transforms=None):
         """
@@ -75,6 +81,8 @@ class Epoch:
             loss_meter = AverageValueMeter()
             metrics_meters = {metric.__name__: AverageValueMeter()
                               for metric in self.metrics}
+        times_meters = {}
+
         if _logs is not None:
             _logs.clear()
         np_y_pred = []
@@ -89,7 +97,9 @@ class Epoch:
                     losses = []
                     preds = []
                     for cnt, (x_, y_) in enumerate(zip(x, y)):
-                        _loss, _pred = self.batch_update(x_, y_, logs=_logs)
+                        _loss, _pred, times = self.batch_update(x_, y_, logs=_logs)
+                        self.update_times(times_meters, times)
+
                         losses.append(_loss)
                         if _tta_inv_transforms is not None:
                             _pred = _tta_inv_transforms[cnt](_pred)
@@ -103,7 +113,8 @@ class Epoch:
                         raise ValueError(f"Provided TTA strategy ({_tta_strategy})"
                                          " was not understood, `mean` or `max` currently handled")
                 else:
-                    loss, y_pred = self.batch_update(x, y, logs=_logs)
+                    loss, y_pred, times = self.batch_update(x, y, logs=_logs)
+                    self.update_times(times_meters, times)
 
                 if self.stage_name != 'test':
                     # update loss logs
@@ -130,7 +141,7 @@ class Epoch:
                         iterator.set_postfix_str(s)
                 else:
                     np_y_pred.append(y_pred.cpu().data.numpy())
-
+        logs.update({'time_' + t: times_meters[t].mean for t in times_meters})
         if self.stage_name == 'test':
             return np.concatenate(np_y_pred, axis=0)
 
@@ -155,12 +166,18 @@ class TrainEpoch(Epoch):
 
     def batch_update(self, x, y, logs=None):
         self.optimizer.zero_grad()
+        t_forward = time()
         prediction = self.model(x)
-
+        t_forward = time() - t_forward
+        t_loss = time()
         loss = self.loss(prediction, y, logs=logs)
+        t_loss = time() - t_loss
+        t_backprop = time()
         loss.backward()
+        t_backprop = time() - t_backprop
         self.optimizer.step()
-        return loss, prediction
+
+        return loss, prediction, {'backprop': t_backprop, 'forward': t_forward, 'loss': t_loss}
 
 
 class ValidEpoch(Epoch):
@@ -180,9 +197,13 @@ class ValidEpoch(Epoch):
 
     def batch_update(self, x, y, logs=None):
         with torch.no_grad():
+            t_forward = time()
             prediction = self.model(x)
+            t_forward = time() - t_forward
+            t_loss = time()
             loss = self.loss(prediction, y, logs=logs)
-        return loss, prediction
+            t_loss = time() - t_loss
+        return loss, prediction, {'forward': t_forward, 'loss': t_loss}
 
 
 class TestEpoch(Epoch):
@@ -202,5 +223,7 @@ class TestEpoch(Epoch):
 
     def batch_update(self, x, y, logs=None):
         with torch.no_grad():
+            t_forward = time()
             prediction = self.model(x)
-        return None, prediction
+            t_forward = time() - t_forward
+        return None, prediction, {'forward': t_forward}

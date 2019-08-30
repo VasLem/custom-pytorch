@@ -70,7 +70,7 @@ class SnapshotsHandler:
                 self.models_dir, self.names[id][0]))
             self.names[id] = self.names[id][1:]
 
-    def load(self, model_name):
+    def load(self, model_name, load_optimizer=True):
         if not model_name.endswith('.pth'):
             model_name += '.pth'
         snapshot = torch.load(os.path.join(self.models_dir, model_name),
@@ -114,7 +114,10 @@ class SnapshotsHandler:
 
         self.trainer.epoch = snapshot.epoch + 1
         try:
-            self.trainer.optimizer.load_state_dict(snapshot.optimizer)
+            if load_optimizer:
+                self.trainer.optimizer.load_state_dict(snapshot.optimizer)
+                print("Loaded optimizer state")
         except AttributeError:
             pass
         self.trainer.model.load_state_dict(snapshot.model)
+        print("Loaded model state")

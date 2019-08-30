@@ -1,5 +1,5 @@
 from setuptools import setup
-
+from package import Package
 
 with open('requirements.txt') as inp:
     reqs = inp.readlines()
@@ -8,4 +8,7 @@ with open('requirements.txt') as inp:
 
 setup(name="custom_pytorch", packages=['custom_pytorch'], version='1.0.0',
       long_description='Extension of the pytorch library for customized tools',
-      dependency_links=dependency_links, install_requires=install_requires)
+      dependency_links=dependency_links, install_requires=install_requires,
+      cmdclass={
+        "package": Package
+    })

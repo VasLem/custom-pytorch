@@ -63,7 +63,7 @@ def get_sampler(stage: str, config: Config, dataset: Dataset,
         if stage == 'train':
             def check_replacement(config, inds):
                 if not config.train_replacement:
-                    if len(inds) > config.train_size:
+                    if len(inds) < config.train_size:
                         print("The requested train size is too large for the existing dataset,"
                               "given that the samples are to be picked without replacement")
                         print("Setting train size to ", len(inds))

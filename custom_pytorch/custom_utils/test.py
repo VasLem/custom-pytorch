@@ -36,8 +36,8 @@ class Tester:
         self.snapshots_handler = SnapshotsHandler(
             self, save_dir='snapshots', create_dir=True)
 
-    def load_model(self, model_name):
-        self.snapshots_handler.load(model_name)
+    def load_model(self, model_name, **params):
+        self.snapshots_handler.load(model_name, **params)
         return self.model
 
     def __call__(self, _logs=None):

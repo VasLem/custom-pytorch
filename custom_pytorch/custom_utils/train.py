@@ -72,8 +72,8 @@ class Trainer:
         self.main_logger.update(
             step=step, logs=logs[step]['main logs'], valid=valid)
 
-    def load_model(self, model_name):
-        self.snasphots_handler.load(model_name)
+    def load_model(self, model_name, **params):
+        self.snasphots_handler.load(model_name, **params)
         self.config.warm_start = model_name
         return self.model
 
