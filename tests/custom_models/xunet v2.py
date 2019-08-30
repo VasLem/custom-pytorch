@@ -9,7 +9,7 @@ from segmentation_models_pytorch.encoders import get_preprocessing_fn, get_encod
 import segmentation_models_pytorch as smp
 from custom_pytorch.custom_utils.calc_number import params_number, submodules_number
 from custom_pytorch.custom_visualizations.segmentation import Visualizer
-from custom_pytorch.external.pytorch_enet.metric.iou import IoU as _IoU
+from custom_pytorch.metrics import IoU as _IoU
 import torch.nn.functional as F
 
 
