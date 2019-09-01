@@ -1,12 +1,14 @@
 # Manifest syntax https://docs.python.org/2/distutils/sourcedist.html
 graft wheelhouse
+graft custom_pytorch
 
-recursive-exclude __pycache__  *.pyc *.pyo *.orig
+global-exclude *.py[co] __pycache__ *.orig
 
 exclude *.js*
 exclude *.git*
 exclude *.coveragerc
 exclude *.sh
+include offline_install.sh
 exclude proc*
 exclude pylint*
 exclude README*

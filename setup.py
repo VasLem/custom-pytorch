@@ -1,5 +1,5 @@
 from setuptools import setup
-from package import Package
+from package import Package, UpdateRequirements
 
 with open('requirements.txt') as inp:
     reqs = inp.readlines()
@@ -10,5 +10,6 @@ setup(name="custom_pytorch", packages=['custom_pytorch'], version='1.0.0',
       long_description='Extension of the pytorch library for customized tools',
       dependency_links=dependency_links, install_requires=install_requires,
       cmdclass={
-        "package": Package
+        "package": Package,
+        "update_reqs": UpdateRequirements
     })
