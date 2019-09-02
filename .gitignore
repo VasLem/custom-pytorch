@@ -111,3 +111,6 @@ venv.bak/
 
 # any datasets
 tests/**/data/
+
+# offline wheels
+wheelhouse
