@@ -1,7 +1,8 @@
-import torch
+"""Multiclass IoU metric implementation
+"""
 import numpy as np
 from .base import Metric
-from .confusionmatrix import ConfusionMatrix
+from .confusion_matrix import ConfusionMatrix
 
 
 class IoU(Metric):

@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 from package import Package, UpdateRequirements
 
 with open('requirements.txt') as inp:
@@ -6,10 +6,12 @@ with open('requirements.txt') as inp:
     install_requires = [req for req in reqs if not req.startswith('http')]
     dependency_links = [req for req in reqs if req.startswith('http')]
 
-setup(name="custom_pytorch", packages=['custom_pytorch'], version='1.0.0',
+setup(name="custom_pytorch", version='1.0.0',
       long_description='Extension of the pytorch library for customized tools',
       dependency_links=dependency_links, install_requires=install_requires,
+      packages=find_packages(exclude=['contrib', 'docs', 'tests']),
       cmdclass={
-        "package": Package,
-        "update_reqs": UpdateRequirements
-    })
+          "package": Package,
+          "update_reqs": UpdateRequirements
+      }
+      )

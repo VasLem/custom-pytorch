@@ -145,6 +145,7 @@ class Package(_Command):
         print("Generating local requirements.txt")
         self.localize_requirements()
         if self.against_kaggle:
+            print('Removing wheels already installed in Kaggle')
             self.remove_kaggle_wheels()
         print("Packing code and wheelhouse into dist")
         self.run_command("sdist")
@@ -154,8 +155,16 @@ class Package(_Command):
 class UpdateRequirements(_Command):
     """Update requirements.txt file"""
     description = "Update requirements file using pipreqs package"
-    user_options = [('against_kaggle=', True, 'Update requirements, given kaggle ones.')]
+    user_options = []
 
+
+    def initialize_options(self):
+        """Set default values for options."""
+        pass
+
+    def finalize_options(self):
+        """Post-process options."""
+        pass
 
 
     def run(self):

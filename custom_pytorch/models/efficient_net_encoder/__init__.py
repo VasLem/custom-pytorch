@@ -1,7 +1,6 @@
 from torch import nn
 import torch
 from efficientunet.efficientnet import _get_model_by_name
-from collections import OrderedDict
 
 
 class Swish(nn.Module):
