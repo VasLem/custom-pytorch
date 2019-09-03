@@ -118,7 +118,7 @@ class DecodingColumn(Model):
 
         features = [inputs]
         for cnt, (decoder, previous_column_output) in enumerate(zip(
-                self.column_decoders,  previous_column_outputs)):
+                self.column_decoders, previous_column_outputs)):
             if cnt:
                 previous_column_output = self.column_downsamplers[cnt - 1](
                     previous_column_output)

@@ -11,7 +11,6 @@ typing==3.6.6
 torchnet==0.0.4
 matplotlib==3.0.3
 torchvision==0.3.0
-setuptools==41.0.1
 torch==1.1.0
 scipy==1.2.1
 pillow==5.4.1
