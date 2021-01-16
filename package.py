@@ -46,7 +46,7 @@ class _Command(Command):
 
 
 class Package(_Command):
-    """Package Code and Dependencies into wheelhouse"""
+    """Package code and Dependencies into wheelhouse"""
     description = "Run wheels for dependencies and submodules dependencies"
     user_options = [('against-kaggle=', None, 'Save wheels, given kaggle ones.')]
 
@@ -82,7 +82,7 @@ class Package(_Command):
                     pkg_name = dependency.split("egg=")[-1]
                     local_dependencies.append(pkg_name)
                 elif "git+" in dependency:
-                    pkg_name = dependency.split("/")[-1].split(".")[0]
+                    pkg_name = '_'.join(dependency.split("/")[-1].split(".")[:-1])
                     local_dependencies.append(pkg_name)
                 else:
                     local_dependencies.append(dependency)

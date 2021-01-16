@@ -20,7 +20,9 @@ class IoU(nn.Module):
 
     def forward(self, preds, gts):
         self.calculator.add(preds, gts)
-        return self.calculator.value()[1]
+        value = self.calculator.value()[1]
+        self.calculator.reset()
+        return value
 
 from efficientunet import *
 

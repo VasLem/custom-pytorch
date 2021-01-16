@@ -7,8 +7,8 @@ CONFIG = read_configuration(os.path.join(DIR, 'setup.cfg'))
 
 with open('requirements.txt') as inp:
     reqs = inp.readlines()
-    install_requires = [req for req in reqs if not req.startswith('http')]
-    dependency_links = [req for req in reqs if req.startswith('http')]
+    install_requires = [req for req in reqs if not req.startswith('http') and not req.startswith('git')]
+    dependency_links = [req for req in reqs if req.startswith('http') or req.startswith('git')]
 
 setup(name="custom_pytorch", version=CONFIG['metadata']['version'],
       long_description=CONFIG['metadata']['long_description'],

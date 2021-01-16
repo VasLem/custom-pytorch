@@ -103,7 +103,7 @@ venv.bak/
 # mypy
 .mypy_cache/
 
-# Visual Studio Code
+# Visual Studio code
 .vscode
 
 # torch save models
