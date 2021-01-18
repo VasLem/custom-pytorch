@@ -24,8 +24,8 @@ class IoU(nn.Module):
         self.calculator.reset()
         return value
 
-from efficientunet import *
 
+from efficientunet import *
 
 
 def main():
@@ -36,70 +36,81 @@ def main():
     from torch import Tensor
     from custom_pytorch.models.efficient_net_encoder import EfficientNetEncoder
 
-
-
-
     # encoder = EfficientNetEncoder('efficientnet-b3', pretrained=True).to(DEVICE)
     # encoder = 'resnet18'
-    encoder = 'se_resnext50_32x4d'
+    encoder = "se_resnext50_32x4d"
+
     def transform_func(img):
         img = np.array(img)
         img = get_preprocessing_fn(encoder)(img)
         img = cv2.resize(img, (256, 256), interpolation=cv2.INTER_LINEAR)
-        img = np.transpose(img,(2,0,1))
+        img = np.transpose(img, (2, 0, 1))
         img = torch.from_numpy(img).float()
 
         return img
 
     def target_transform_func(img):
         img = np.array(img)
-        img[img == 255] = 0 # removing borders
+        img[img == 255] = 0  # removing borders
         img = cv2.resize(img, (256, 256), interpolation=cv2.INTER_NEAREST)
         img = torch.from_numpy(img).long()
         return img
 
-
-    train_dataset = VOCSegmentation('/media/vaslem/Data/kaggle/input', image_set='train',
-                                    transform=transform_func, target_transform=target_transform_func)
-    valid_dataset = VOCSegmentation('/media/vaslem/Data/kaggle/input', image_set='val',
-                                    transform=transform_func, target_transform=target_transform_func)
-
-    model_to_use = 'SimpleXUnetV2'
+    train_dataset = VOCSegmentation(
+        "/media/vaslem/Data/kaggle/input",
+        image_set="train",
+        transform=transform_func,
+        target_transform=target_transform_func,
+    )
+    valid_dataset = VOCSegmentation(
+        "/media/vaslem/Data/kaggle/input",
+        image_set="val",
+        transform=transform_func,
+        target_transform=target_transform_func,
+    )
+    model_to_use = "SimpleXUnetV2"
     # model_to_use = 'Unet'
-    CONFIG = Config(train_size=len(train_dataset), valid_size=100, batch_size=3,
-                   random_seed=42, lr=1e-2, identifier=model_to_use)
-    train_data_loader = torch.utils.data.DataLoader(train_dataset,
-                                          batch_size=CONFIG.batch_size,
-                                          shuffle=True,
-                                          num_workers=8)
+    CONFIG = Config(
+        train_size=len(train_dataset),
+        valid_size=100,
+        batch_size=3,
+        random_seed=42,
+        lr=1e-2,
+        identifier=model_to_use,
+    )
+    train_data_loader = torch.utils.data.DataLoader(
+        train_dataset, batch_size=CONFIG.batch_size, shuffle=True, num_workers=8
+    )
     valid_sampler = RandomSampler(valid_dataset, True, CONFIG.valid_size)
-    valid_data_loader = torch.utils.data.DataLoader(valid_dataset, sampler=valid_sampler,
-                                          batch_size=CONFIG.batch_size)
-    device = 'cuda'
-    if model_to_use == 'SimpleXUnet':
+    valid_data_loader = torch.utils.data.DataLoader(
+        valid_dataset, sampler=valid_sampler, batch_size=CONFIG.batch_size
+    )
+    device = "cuda"
+    if model_to_use == "SimpleXUnet":
+        model = SimpleXUnet(encoder, train_dataset[0][0].unsqueeze(dim=0), 21).to(
+            device
+        )
+    elif model_to_use == "SimpleXUnetV2":
 
-        model = SimpleXUnet(encoder, train_dataset[0][0].unsqueeze(dim=0), 21).to(device)
-    elif model_to_use == 'SimpleXUnetV2':
-
-        model = SimpleXUnetV2(encoder, train_dataset[0][0].unsqueeze(dim=0), 21).to(device)
-
-    elif model_to_use == 'Unet':
+        model = SimpleXUnetV2(encoder, train_dataset[0][0].unsqueeze(dim=0), 21).to(
+            device
+        )
+    elif model_to_use == "Unet":
         model = smp.Unet(encoder, classes=21).to(device)
     print("Model parameters number:", params_number(model))
     print("Model modules number:", submodules_number(model))
     for param in model.encoder.parameters():
-            param.requires_grad = False
+        param.requires_grad = False
     # model_parameters = filter(lambda p: p.requires_grad, model.parameters())
     # params = sum([np.prod(p.size()) for p in model_parameters])
     # print(params)
     optimizer = SGD(model.parameters(), CONFIG.lr)
     step = 0
     epochs_num = 30
-
-    visualizer = Visualizer(CONFIG, metric_used='IoU', include_lr=False,
-                            metric_function=IoU(21))
+    visualizer = Visualizer(
+        CONFIG, metric_used="IoU", include_lr=False, metric_function=IoU(21)
+    )
     loss_function = nn.CrossEntropyLoss()
-
     for epoch in range(epochs_num):
         print(f"Epoch {epoch + 1}")
         total_t_loss = 0
@@ -108,7 +119,6 @@ def main():
         t_metrics = []
         v_metrics = []
         for batch in tqdm(train_data_loader):
-
             optimizer.zero_grad()
             t_ims = batch[0].to(device)
             t_gts = batch[1].to(device)
@@ -127,7 +137,7 @@ def main():
                     for v_batch in tqdm(valid_data_loader):
                         v_ims = v_batch[0].to(device)
                         v_gts = v_batch[1].to(device)
-                        v_outs  = model(v_ims)
+                        v_outs = model(v_ims)
                         v_loss = loss_function(v_outs.detach(), v_gts.detach())
                         total_v_loss += v_loss.cpu().data.numpy()
                         vb_cnt += 1
@@ -144,23 +154,5 @@ def main():
         print("Validation IOU:", np.mean(v_metrics))
 
 
-
-
-
-
-
-
-
-
-
-if __name__ == '__main__':
-     main()
-
-
-
-
-
-
-
-
-
+if __name__ == "__main__":
+    main()
