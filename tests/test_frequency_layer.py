@@ -19,37 +19,56 @@ class SimpleFrequencyNet(nn.Module):
         filters_size=(6, 10),
         filters_kernels=(3, 5),
         final_maxpool=5,
+        reduction=2,
     ):
         super().__init__()
+        self.reduction = reduction
         self.input_size = input_size
+        self.filters_size = filters_size
+        self.filters_kernels = filters_kernels
+        self.final_maxpool = final_maxpool
         self.n_cat = n_cat
-        self.fft = FFT(input_size)
+        self.fft = FFT()
         self.model_real = nn.Sequential(
-            nn.Conv2d(1, filters_size[0], filters_kernels[0]),
+            nn.Conv2d(1, self.filters_size[0], self.filters_kernels[0]),
             nn.ReLU(),
-            nn.Conv2d(filters_size[0], filters_size[1], filters_kernels[1]),
+            nn.Conv2d(
+                self.filters_size[0], self.filters_size[1], self.filters_kernels[1]
+            ),
             nn.ReLU(),
-            nn.MaxPool2d(final_maxpool),
+            nn.MaxPool2d(self.final_maxpool),
             nn.Flatten(),
         )
         self.model_imag = copy(self.model_real)
+        self.parallel_model = copy(self.model_real)
         self.final_layer = nn.Linear(
-            2
-            * (
-                (input_size - sum((x - 1) for x in filters_kernels))
-                // ((final_maxpool))
+            (
+                2
+                * (
+                    (
+                        self.input_size // self.reduction
+                        - sum((x - 1) for x in self.filters_kernels)
+                    )
+                    // ((self.final_maxpool))
+                )
+                ** 2
+                + (
+                    (self.input_size - sum((x - 1) for x in self.filters_kernels))
+                    // ((self.final_maxpool))
+                )
+                ** 2
             )
-            ** 2
-            * filters_size[-1],
-            n_cat,
+            * self.filters_size[-1],
+            self.n_cat,
         )
 
     def forward(self, inp):
         inp = (inp / 255.0).float()
-        freq = self.fft.apply(inp)
+        freq = self.fft.apply(inp, self.reduction)
         imag_ret = self.model_real(freq[0].float())
         real_ret = self.model_imag(freq[1].float())
-        ret = self.final_layer(torch.cat((imag_ret, real_ret), 1))
+        par_ret = self.parallel_model(inp)
+        ret = self.final_layer(torch.cat((imag_ret, real_ret, par_ret), 1))
 
         return ret
 
@@ -125,6 +144,7 @@ def run_model(mnist_train_loader, model, step=0.01, optimizer=None):
             total_loss += t_loss.data.cpu().numpy() / len(batch)
             cnt += 1
         total_loss /= cnt - 1
+        print(total_loss)
     return total_loss
 
 
@@ -144,9 +164,10 @@ def run_baseline_mnist_bce(mnist_train_loader: DataLoader, optimizer=None):
 
 def run_freq_net(mnist_train_loader: DataLoader, optimizer=None):
     loss = run_model(
-        mnist_train_loader, SimpleFrequencyNet(28, 10), optimizer=optimizer
+        mnist_train_loader,
+        SimpleFrequencyNet(28, 10, reduction=2),
+        optimizer=optimizer,
     )
-    print(loss)
     return loss
 
 
