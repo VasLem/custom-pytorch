@@ -2,10 +2,8 @@ from torch.autograd import Function
 import numpy as np
 from math import pi
 from torch import from_numpy
-from collections import Iterable
-from torch import nn, eye
-from torch.functional import Tensor
-
+from torch import nn
+import torch
 
 def init_mats(input_, reduce_dims=2):
     in_size = input_.shape
@@ -34,7 +32,7 @@ class FFT(Function):
     # bias is an optional argument
     def forward(
         ctx,
-        _input,
+        _input: torch.Tensor,
         reduce_dims=2,
     ):
         try:
@@ -45,8 +43,8 @@ class FFT(Function):
         except ValueError:
             real_mat, imag_mat = init_mats(_input, reduce_dims)
             ctx.save_for_backward(real_mat, imag_mat)
-        real_mat = real_mat.to(_input.get_device())
-        imag_mat = imag_mat.to(_input.get_device())
+        real_mat = real_mat.to(_input.device)
+        imag_mat = imag_mat.to(_input.device)
 
         real_output = (
             real_mat[np.newaxis, np.newaxis, ...] * _input[..., np.newaxis, np.newaxis]

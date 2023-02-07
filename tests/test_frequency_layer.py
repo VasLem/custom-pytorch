@@ -119,7 +119,7 @@ from sklearn.preprocessing import label_binarize
 
 
 def run_model(mnist_train_loader, model, step=0.01, optimizer=None):
-    device = torch.device("cuda" if USE_CUDA else "cpu")
+    device = torch.device(torch.cuda.current_device() if USE_CUDA  and torch.cuda.is_available() else "cpu")
     ret = []
     labels = []
     model = model.to(device)
